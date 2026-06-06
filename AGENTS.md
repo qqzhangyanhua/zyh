@@ -1,0 +1,43 @@
+# Repository Guidelines
+
+## Project Structure & Module Organization
+
+This repository contains the `harness` Codex skill for preparing unfamiliar or legacy repositories for safe agent work.
+
+- `SKILL.md`: the skill entry point, including required workflow and safety rules.
+- `scripts/scan_repo.py`: scans a target repository and writes conservative facts to `.agent/repo-facts.json`.
+- `scripts/validate_harness_docs.py`: validates generated harness documentation and `scripts/check.sh`.
+- `tests/test_harness_scripts.py`: unit tests for the scan and validation scripts.
+- `references/templates.md`: source templates for harness documentation.
+- `agents/openai.yaml`: agent configuration metadata.
+
+Keep durable guidance in `SKILL.md` or `references/`; keep executable behavior in `scripts/`; keep regression coverage in `tests/`.
+
+## Build, Test, and Development Commands
+
+- `python3 -m unittest tests/test_harness_scripts.py`: run the full local test suite.
+- `python3 scripts/scan_repo.py /path/to/repo`: scan a target repo and create `.agent/repo-facts.json`.
+- `python3 scripts/scan_repo.py --deep --limit 20000 /path/to/repo`: collect deeper doc hints when shallow facts are insufficient.
+- `python3 scripts/validate_harness_docs.py /path/to/repo`: validate the required harness docs in a target repo.
+
+There is no package manager manifest in this directory. Do not introduce `npm`, `pnpm`, or build tooling unless the repository gains a real need for it.
+
+## Coding Style & Naming Conventions
+
+Python code uses standard-library modules, explicit functions, and type hints where useful. Use 4-space indentation, `snake_case` for functions and variables, `UPPER_CASE` for constants, and `Path` objects for filesystem paths. Keep scripts deterministic and conservative: do not infer commands, owners, or architecture from convention alone.
+
+Markdown should be concise, instructional, and repo-specific. Prefer short sections, concrete paths, and explicit labels such as `Not configured` or `Needs human confirmation` over vague unknowns.
+
+## Testing Guidelines
+
+Tests use Python `unittest` and temporary directories to verify behavior without touching real target repos. Name new tests `test_<behavior>` and cover both accepted and rejected cases when changing validator rules. Run `python3 -m unittest tests/test_harness_scripts.py` before reporting script or workflow changes as complete.
+
+## Commit & Pull Request Guidelines
+
+Recent commits use version-prefixed Chinese summaries, for example `v0.1.9：修复Windows 10下...`. Follow that style for release-like changes. For smaller work, use a concise imperative summary that names the affected area.
+
+Pull requests should include the user-facing intent, changed files, verification command output, and any compatibility risks. Link issues when relevant, especially for platform-specific fixes.
+
+## Agent-Specific Instructions
+
+Before changing behavior, ask: is this a real problem, is there a simpler fix, and what existing behavior could break? Prefer minimal diffs, preserve backward compatibility, and validate with tests.
