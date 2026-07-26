@@ -4,6 +4,7 @@
 
 | 时间 | 类型 | 说明 |
 | --- | --- | --- |
+| 2026-07-26 | 功能 | 完成 issue #3 Slice 1：`walk_repo` 改用 `git ls-files` 遍历 git 仓库；非 git 目录回退 `os.walk` + 扩展 SKIP_DIRS；新增 `submodules` / `ignored_top_dirs` 字段；补充 4 个端到端测试（git/非git/submodule/ignored_top_dirs）；修复 Windows `os.X_OK` 平台差异 skip。测试 35 个全部通过（1 个 Windows skip）。 |
 | 2026-07-26 | 基建 | 完成 issue #2 prefactor：新增 `scripts/harness/` 包结构、薄 CLI、`schema_version: 2` 骨架、最小 `pyproject.toml` 与 GitHub Actions CI。 |
 | 2026-06-06 14:43:29 | 修复 | 修复 `detect_package_scripts` 绝对路径误跳过 bug；扫描器递归检测嵌套脚本并放开校验正则;新增 `truncated` 截断标记;新增 `scripts/check.sh` 作为统一检查入口。测试 23→27。 |
 | 2026-06-06 13:12:21 | 增量复扫 | 全量复扫仓库，未检测到源文件、模块边界或文档内容变化；仅刷新时间戳与覆盖率元数据。 |

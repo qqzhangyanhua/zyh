@@ -497,6 +497,7 @@ class HarnessScriptTests(unittest.TestCase):
             facts = json.loads((repo / ".agent" / "repo-facts.json").read_text(encoding="utf-8"))
             self.assertIn(".pre-commit-config.yaml", facts["precommit_hooks"])
 
+    @unittest.skipIf(sys.platform == "win32", "Windows does not support Unix executable bits")
     def test_validate_rejects_non_executable_check_sh(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             repo = Path(temp_dir) / "repo"

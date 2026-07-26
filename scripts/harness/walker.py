@@ -25,10 +25,6 @@ def should_skip_dir(path: Path) -> bool:
     return _skip_dir_name(path.name)
 
 
-def walk_files(root: Path, limit: int) -> list[Path]:
-    return walk_repo(root, limit).files
-
-
 def walk_repo(root: Path, limit: int) -> WalkResult:
     if _is_git_repo(root):
         submodules = _git_submodules(root)
@@ -115,41 +111,13 @@ def _git_submodules(root: Path) -> list[dict[str, str]]:
     result = _run_git(root, "submodule", "status")
     if result.returncode != 0:
         return []
-    urls = _git_submodule_urls(root)
     submodules: list[dict[str, str]] = []
     for line in result.stdout.splitlines():
         parts = line.strip().split()
         if len(parts) < 2:
             continue
-        path = parts[1]
-        item = {"path": path}
-        url = urls.get(path)
-        if url:
-            item["url"] = url
-        submodules.append(item)
+        submodules.append({"path": parts[1]})
     return submodules
-
-
-def _git_submodule_urls(root: Path) -> dict[str, str]:
-    result = _run_git(root, "config", "--file", ".gitmodules", "--get-regexp", r"^submodule\..*\.url$")
-    if result.returncode != 0:
-        return {}
-    urls: dict[str, str] = {}
-    for line in result.stdout.splitlines():
-        key, _, url = line.partition(" ")
-        if not url:
-            continue
-        path = _git_submodule_path(root, key.removesuffix(".url"))
-        if path:
-            urls[path] = url
-    return urls
-
-
-def _git_submodule_path(root: Path, section: str) -> str:
-    result = _run_git(root, "config", "--file", ".gitmodules", "--get", f"{section}.path")
-    if result.returncode != 0:
-        return ""
-    return result.stdout.strip()
 
 
 def _run_git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
