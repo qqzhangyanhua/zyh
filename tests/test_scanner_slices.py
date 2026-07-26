@@ -3,28 +3,19 @@
 from __future__ import annotations
 
 import json
-import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-SCAN = ROOT / "scripts" / "scan_repo.py"
+_tests_dir = str(Path(__file__).resolve().parent)
+if _tests_dir not in sys.path:
+    sys.path.insert(0, _tests_dir)
+from helpers import ROOT, SCAN, run_script
 
 sys.path.insert(0, str(ROOT / "scripts"))
 from harness.scanner import FileLimitError
 from harness.scanner import scan as scanner_scan
-
-
-def run_script(*args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        [sys.executable, *args],
-        cwd=ROOT,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
 
 
 class ScannerSlicesTests(unittest.TestCase):
@@ -110,7 +101,6 @@ class ScannerSlicesTests(unittest.TestCase):
             (repo / "a" / "file.txt").write_text("x", encoding="utf-8")
             (repo / "b").mkdir()
             (repo / "b" / "file.txt").write_text("x", encoding="utf-8")
-            # Set full_threshold=1 so 2 files triggers proportional mode
             facts = scanner_scan(repo, limit=5000, deep=False, _full_threshold=1, _max_threshold=500_000)
             self.assertEqual(facts["truncation_strategy"]["mode"], "proportional")
             self.assertIn("a", facts["suggested_shards"])

@@ -6,7 +6,8 @@ import sys
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+_root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(_root / "scripts"))
 from harness.sampling import sample_with_buckets
 
 
@@ -40,7 +41,6 @@ class SampleWithBucketsTests(unittest.TestCase):
         self.assertEqual(result, items[:5])
 
     def test_proportional_across_buckets(self):
-        # 60 items from "a", 40 from "b"; cap=10 → a gets more than b
         items = [f"a/{i}" for i in range(60)] + [f"b/{i}" for i in range(40)]
         result, total, truncated = sample_with_buckets(items, 10, lambda p: p.split("/")[0])
         self.assertEqual(total, 100)
@@ -56,13 +56,11 @@ class SampleWithBucketsTests(unittest.TestCase):
         self.assertEqual(result, items[:5])
 
     def test_fewer_slots_than_buckets(self):
-        # 3 buckets, cap=2 → take 1 from each of the first 2 (sorted: a, b, c)
         items = ["c/x", "b/x", "a/x"]
         result, total, truncated = sample_with_buckets(items, 2, lambda p: p.split("/")[0])
         self.assertEqual(total, 3)
         self.assertTrue(truncated)
         self.assertEqual(len(result), 2)
-        # sorted keys: a, b, c → take a/x and b/x
         self.assertIn("a/x", result)
         self.assertIn("b/x", result)
 

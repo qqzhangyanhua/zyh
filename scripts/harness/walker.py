@@ -92,10 +92,14 @@ def _git_count_files(root: Path) -> dict[str, Any]:
 def _os_walk_count_files(root: Path) -> dict[str, Any]:
     by_top: dict[str, int] = {}
     total = 0
+    root_str = str(root)
+    sep = os.sep
     for current, dirs, names in os.walk(root):
         dirs[:] = sorted(d for d in dirs if not _skip_dir_name(d))
-        rel_parts = Path(current).relative_to(root).parts
-        top = rel_parts[0] if rel_parts else "."
+        if current == root_str:
+            top = "."
+        else:
+            top = current[len(root_str) + len(sep):].split(sep, 1)[0]
         count = len(names)
         total += count
         if count:

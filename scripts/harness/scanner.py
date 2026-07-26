@@ -155,15 +155,16 @@ def scan(
     facts["ignored_top_dirs"] = walk_result.ignored_top_dirs
     facts["submodules"] = walk_result.submodules
 
-    doc_hints_raw: list = []
     if deep:
-        doc_hints_raw = extract_doc_hints(root, docs_raw)
+        doc_hints_raw: list[Any] = extract_doc_hints(root, docs_raw)
         doc_hints, dh_total, dh_trunc = sample_with_buckets(
             doc_hints_raw, _SAMPLE_CAP, lambda h: _top_dir(h.get("path", ""))
         )
         facts["doc_hints"] = doc_hints
         facts["doc_hints_total"] = dh_total
         facts["doc_hints_truncated"] = dh_trunc
+    else:
+        doc_hints_raw = []
 
     if full_output is not None:
         overrides: dict[str, Any] = {

@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any
 
-def sample_with_buckets(items: list, cap: int, key_fn) -> tuple[list, int, bool]:
+
+def sample_with_buckets(
+    items: list[Any], cap: int, key_fn: Callable[[Any], str]
+) -> tuple[list[Any], int, bool]:
     """Proportionally sample up to cap items across key_fn buckets.
 
     Returns (sampled, total, was_truncated).
@@ -11,13 +16,13 @@ def sample_with_buckets(items: list, cap: int, key_fn) -> tuple[list, int, bool]
     total = len(items)
     if total <= cap:
         return list(items), total, False
-    groups: dict[str, list] = {}
+    groups: dict[str, list[Any]] = {}
     for item in items:
         groups.setdefault(key_fn(item), []).append(item)
     keys = sorted(groups)
     if cap < len(keys):
         return [groups[k][0] for k in keys[:cap]], total, True
-    sampled: list = []
+    sampled: list[Any] = []
     used = 0
     for i, k in enumerate(keys):
         remaining_groups = len(keys) - i
