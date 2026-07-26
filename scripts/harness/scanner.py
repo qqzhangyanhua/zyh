@@ -24,11 +24,12 @@ from .detectors import (
     extract_makefile_targets,
 )
 from .schema import v2_placeholders
-from .walker import top_level, walk_files
+from .walker import top_level, walk_repo
 
 def scan(root: Path, limit: int, deep: bool) -> dict[str, Any]:
     root = root.resolve()
-    files = walk_files(root, limit)
+    walk_result = walk_repo(root, limit)
+    files = walk_result.files
     test_files = detect_tests(files, root)
     docs = detect_docs(files, root)
     package_commands = detect_script_commands(root)
@@ -61,6 +62,8 @@ def scan(root: Path, limit: int, deep: bool) -> dict[str, Any]:
         ],
         **v2_placeholders(),
     }
+    facts["ignored_top_dirs"] = walk_result.ignored_top_dirs
+    facts["submodules"] = walk_result.submodules
     if deep:
         facts["doc_hints"] = extract_doc_hints(root, docs)
     return facts

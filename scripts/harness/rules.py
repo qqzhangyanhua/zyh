@@ -16,7 +16,22 @@ SKIP_DIRS = {
     ".cache",
     "__pycache__",
     ".agent",
+    "vendor",
+    "third_party",
+    "target",
+    "out",
+    "coverage",
+    ".tox",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".gradle",
+    ".idea",
+    ".vscode",
 }
+
+SKIP_DIR_PREFIXES = (
+    "bazel-",
+)
 
 CI_CONFIG_NAMES = {
     ".travis.yml",
