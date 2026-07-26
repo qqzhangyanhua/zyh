@@ -4,6 +4,8 @@
 
 | 时间 | 类型 | 说明 |
 | --- | --- | --- |
+| 2026-07-27 | 修复 | code-review 修复：拆分 `test_harness_scripts.py`（746→319行）为 `helpers.py`、`test_git_traversal.py`、`test_harness_validate.py`；修复 `_os_walk_count_files` 在计数阶段错误构建 Path 对象（改用字符串切片）；`sample_with_buckets` 补全 `Callable`/`Any` 类型注解；消除 `doc_hints_raw` 提前声明；去除 `run_script` 重复定义。 |
+| 2026-07-27 | 功能 | 完成 issue #4 Slice 2：两阶段扫描（`count_files` 先计数后遍历）；≤50k 全量、50k–500k 按顶层目录比例配额、>500k 抛 `FileLimitError`；`sample_with_buckets` 对所有候选字段限 500 条；新增 `total_files`/`top_level_file_counts`/`truncation_strategy`/`suggested_shards` 及各字段 `_total`/`_truncated` 元数据；`--full` 写全量 `repo-facts.full.json`；`--force` 强制越过 500k 限制。新增 18 个测试，全部 53 个测试通过。 |
 | 2026-07-26 | 功能 | 完成 issue #3 Slice 1：`walk_repo` 改用 `git ls-files` 遍历 git 仓库；非 git 目录回退 `os.walk` + 扩展 SKIP_DIRS；新增 `submodules` / `ignored_top_dirs` 字段；补充 4 个端到端测试（git/非git/submodule/ignored_top_dirs）；修复 Windows `os.X_OK` 平台差异 skip。测试 35 个全部通过（1 个 Windows skip）。 |
 | 2026-07-26 | 基建 | 完成 issue #2 prefactor：新增 `scripts/harness/` 包结构、薄 CLI、`schema_version: 2` 骨架、最小 `pyproject.toml` 与 GitHub Actions CI。 |
 | 2026-06-06 14:43:29 | 修复 | 修复 `detect_package_scripts` 绝对路径误跳过 bug；扫描器递归检测嵌套脚本并放开校验正则;新增 `truncated` 截断标记;新增 `scripts/check.sh` 作为统一检查入口。测试 23→27。 |
