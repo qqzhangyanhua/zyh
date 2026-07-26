@@ -23,10 +23,19 @@ from .detectors import (
     detect_script_commands,
     detect_tests,
     extract_doc_hints,
-    extract_makefile_targets,
 )
 from .sampling import sample_with_buckets
 from .schema import v2_placeholders
+from .task_parsers import (
+    extract_cargo_info,
+    extract_docker_services,
+    extract_go_work_modules,
+    extract_justfile_recipes,
+    extract_makefile_info,
+    extract_pyproject_scripts,
+    extract_taskfile_tasks,
+    extract_workspace_packages,
+)
 from .walker import count_files, top_level, walk_repo
 
 _FULL_THRESHOLD = 50_000
@@ -87,6 +96,8 @@ def scan(
     walk_result = walk_repo(root, walk_limit, quota)
     files = walk_result.files
 
+    parse_errors: list[dict[str, str]] = []
+
     manifests = detect_manifests(files, root)
     test_files_raw = detect_tests(files, root)
     docs_raw = detect_docs(files, root)
@@ -94,8 +105,11 @@ def scan(
     risks_raw = detect_risks(files, root)
     flows_raw = detect_important_flows(files, root)
     ci_configs_raw = detect_ci_configs(files, root)
-    makefile_targets_raw = extract_makefile_targets(root)
     package_commands = detect_script_commands(root)
+
+    makefile_info = extract_makefile_info(root, parse_errors)
+    makefile_targets_raw = makefile_info["targets"]
+    cargo_info = extract_cargo_info(root, parse_errors)
 
     test_files, tf_total, tf_trunc = sample_with_buckets(test_files_raw, _SAMPLE_CAP, _top_dir)
     docs, docs_total, docs_trunc = sample_with_buckets(docs_raw, _SAMPLE_CAP, _top_dir)
@@ -130,8 +144,17 @@ def scan(
         "makefile_targets": makefile_targets,
         "makefile_targets_total": mk_total,
         "makefile_targets_truncated": mk_trunc,
+        "makefile_phony_targets": makefile_info["phony"],
         "package_scripts": detect_package_scripts(root),
         "package_commands": package_commands,
+        "workspace_packages": extract_workspace_packages(root, parse_errors),
+        "python_scripts": extract_pyproject_scripts(root, parse_errors),
+        "cargo_workspace_members": cargo_info["workspace_members"],
+        "cargo_binaries": cargo_info["binaries"],
+        "go_work_modules": extract_go_work_modules(root, parse_errors),
+        "justfile_recipes": extract_justfile_recipes(root, parse_errors),
+        "taskfile_tasks": extract_taskfile_tasks(root, parse_errors),
+        "docker_services": extract_docker_services(root, parse_errors),
         "test_files": test_files,
         "test_files_total": tf_total,
         "test_files_truncated": tf_trunc,
@@ -154,6 +177,7 @@ def scan(
             "Facts are conservative candidates, not architecture claims.",
             "Commands must be verified before docs claim they pass.",
         ],
+        "parse_errors": parse_errors,
     }
     facts["ignored_top_dirs"] = walk_result.ignored_top_dirs
     facts["submodules"] = walk_result.submodules
