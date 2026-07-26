@@ -15,10 +15,12 @@ from .rules import (
     DOC_NAMES,
     GENERATED_HINTS,
     IMPORTANT_FLOW_HINTS,
+    MANIFEST_ECOSYSTEM,
     MANIFEST_NAMES,
     RISK_KEYWORDS,
     SCRIPT_DIRS,
     SKIP_DIRS,
+    TEST_EXACT_FILENAMES,
     TEST_HINTS,
 )
 from .walker import rel
@@ -27,12 +29,28 @@ def detect_manifests(files: list[Path], root: Path) -> list[str]:
     return [rel(path, root) for path in files if path.name in MANIFEST_NAMES]
 
 
+def detect_ecosystem_hypotheses(manifests: list[str]) -> list[dict[str, Any]]:
+    by_eco: dict[str, list[str]] = {}
+    for m in manifests:
+        eco = MANIFEST_ECOSYSTEM.get(Path(m).name)
+        if eco:
+            by_eco.setdefault(eco, []).append(Path(m).name)
+    return [
+        {"ecosystem": eco, "hint": f"{eco} ecosystem detected", "evidence": sorted(names)}
+        for eco, names in sorted(by_eco.items())
+    ]
+
+
 def detect_tests(files: list[Path], root: Path) -> list[str]:
     hits: list[str] = []
     for path in files:
         parts = [part.lower() for part in path.relative_to(root).parts]
         name = path.name.lower()
-        if any(part in TEST_HINTS for part in parts) or any(hint in name for hint in (".test.", ".spec.", "_test.")):
+        if (
+            any(part in TEST_HINTS for part in parts)
+            or any(hint in name for hint in (".test.", ".spec.", "_test."))
+            or name in TEST_EXACT_FILENAMES
+        ):
             hits.append(rel(path, root))
     return hits[:200]
 

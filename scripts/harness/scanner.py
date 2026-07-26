@@ -11,6 +11,7 @@ from .detectors import (
     detect_ci_configs,
     detect_configs,
     detect_docs,
+    detect_ecosystem_hypotheses,
     detect_existing_scripts,
     detect_generated,
     detect_important_flows,
@@ -86,6 +87,7 @@ def scan(
     walk_result = walk_repo(root, walk_limit, quota)
     files = walk_result.files
 
+    manifests = detect_manifests(files, root)
     test_files_raw = detect_tests(files, root)
     docs_raw = detect_docs(files, root)
     generated_raw = detect_generated(files, root)
@@ -114,7 +116,8 @@ def scan(
         "top_level_file_counts": by_top,
         "truncation_strategy": truncation_strategy,
         "suggested_shards": suggested_shards,
-        "manifests": detect_manifests(files, root),
+        "manifests": manifests,
+        "ecosystem_hypotheses": detect_ecosystem_hypotheses(manifests),
         "configs": detect_configs(files, root),
         "docs": docs,
         "docs_total": docs_total,
