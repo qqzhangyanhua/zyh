@@ -19,5 +19,6 @@ env/
 
 # Local agent/runtime artifacts
 .agent/
+.atlas/
 .codex/
 .claude/
