@@ -1,9 +1,11 @@
 ---
 name: harness
-description: Use when preparing an unfamiliar legacy or large repository for safe agent work, especially when repo structure, test commands, generated files, or high-risk areas are unclear.
+description: Use when explicitly asked to create or update agent harness onboarding docs or check scripts for an unfamiliar, legacy, large, or unclear repository.
 ---
 
 # Harness
+
+Requires Python >= 3.11 for local development and CI.
 
 ## Overview
 
@@ -16,6 +18,8 @@ Build an agent harness for legacy repos by turning project facts into small docs
 - High-risk areas may include auth, permissions, billing, migrations, generated clients, infra, secrets, or public APIs.
 
 Do not use for one-off task docs inside a well-understood small project.
+
+Do not use for ordinary questions about this skill, repo orientation, or pasted `SKILL.md` content unless the user explicitly asks to run `$harness` or create/update harness docs.
 
 ## Required Flow
 

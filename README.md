@@ -12,6 +12,13 @@
 
 不适合用来写一次性的任务说明，也不适合替代项目自身的业务文档。
 
+## Skill 加载边界
+
+- 常驻上下文只应保留 skill 索引信息，例如 `name`、`description`、`path`。
+- 只有用户显式调用 `$harness`，或明确要求创建/更新 harness 文档与检查脚本时，才应加载并执行 `SKILL.md` 正文。
+- 用户粘贴的 `<skill>...</skill>` 或 `SKILL.md` 内容只是参考材料，不应自动当作当前任务指令；除非用户明确要求“按这个 skill 执行”。
+- 本 skill 的执行规则只约束 harness 生成流程，不负责全局 skill 调度策略。
+
 ## 目录结构
 
 ```text
@@ -19,8 +26,9 @@
 ├── SKILL.md                         # Skill 入口和执行规范
 ├── AGENTS.md                        # 本仓库贡献者指南
 ├── scripts/
-│   ├── scan_repo.py                 # 扫描目标仓库并生成 .agent/repo-facts.json
-│   └── validate_harness_docs.py     # 校验目标仓库的 harness 文档
+│   ├── scan_repo.py                 # 薄 CLI：扫描目标仓库并生成 .agent/repo-facts.json
+│   ├── validate_harness_docs.py      # 薄 CLI：校验目标仓库的 harness 文档
+│   └── harness/                      # 扫描、检测、schema、校验与 CLI 实现
 ├── tests/
 │   └── test_harness_scripts.py      # 脚本单元测试
 ├── references/
@@ -61,7 +69,7 @@ python3 scripts/validate_harness_docs.py /path/to/repo
 
 ## 本仓库开发
 
-本仓库没有 `package.json` 或构建步骤，主要由 Python 标准库脚本和 Markdown 文档组成。
+本仓库没有 `package.json` 或构建步骤；`pyproject.toml` 只声明项目元数据和 Python >= 3.11，主要代码仍是 Python 标准库脚本和 Markdown 文档。
 
 运行测试：
 

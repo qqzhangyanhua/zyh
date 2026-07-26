@@ -67,6 +67,82 @@ def write_minimal_harness(repo: Path, check_body: str, *, executable: bool = Tru
 
 
 class HarnessScriptTests(unittest.TestCase):
+    def test_scan_repo_writes_v2_schema_placeholders(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir) / "repo"
+            repo.mkdir()
+
+            result = run_script(str(SCAN), str(repo))
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            facts = json.loads((repo / ".agent" / "repo-facts.json").read_text(encoding="utf-8"))
+            self.assertEqual(facts["schema_version"], 2)
+            self.assertEqual(facts["total_files"], 0)
+            self.assertEqual(facts["top_level_file_counts"], {})
+            self.assertEqual(facts["ignored_top_dirs"], [])
+            self.assertEqual(facts["submodules"], [])
+            self.assertEqual(facts["truncation_strategy"], {})
+            self.assertEqual(facts["suggested_shards"], [])
+            self.assertEqual(facts["ecosystem_hypotheses"], [])
+            self.assertEqual(facts["command_provenance_index"], [])
+            self.assertEqual(facts["ci_commands"], [])
+            self.assertEqual(facts["dockerfile_directives"], [])
+            self.assertEqual(facts["tool_configs"], {})
+            self.assertEqual(facts["env_keys"], [])
+            self.assertEqual(facts["precommit_hooks_detail"], [])
+            self.assertEqual(facts["codeowners"], [])
+            self.assertEqual(facts["parse_errors"], [])
+            self.assertEqual(facts["content_read_truncated"], [])
+
+            candidate_fields = (
+                "test_files",
+                "generated_candidates",
+                "risk_candidates",
+                "important_flow_candidates",
+                "docs",
+                "ci_configs",
+                "makefile_targets",
+                "doc_hints",
+            )
+            for field in candidate_fields:
+                self.assertEqual(facts[f"{field}_total"], 0)
+                self.assertFalse(facts[f"{field}_truncated"])
+
+    def test_scan_cli_keeps_existing_options(self) -> None:
+        result = run_script(str(SCAN), "--help")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("repo", result.stdout)
+        self.assertIn("--limit", result.stdout)
+        self.assertIn("--deep", result.stdout)
+        self.assertIn("--output", result.stdout)
+
+    def test_validate_cli_keeps_existing_interface(self) -> None:
+        result = run_script(str(VALIDATE), "--help")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("repo", result.stdout)
+
+    def test_validate_rejects_v1_repo_facts_with_rescan_command(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir) / "repo"
+            repo.mkdir()
+            (repo / ".agent").mkdir()
+            (repo / ".agent" / "repo-facts.json").write_text(
+                json.dumps({"root": str(repo), "top_level": {}}),
+                encoding="utf-8",
+            )
+
+            result = run_script(str(VALIDATE), str(repo))
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(
+                "repo-facts.json is schema v1 and no longer supported. "
+                "Re-run: python3 scripts/scan_repo.py <repo-root>",
+                result.stdout,
+            )
+            self.assertNotIn("missing required file", result.stdout)
+
     def test_scan_repo_writes_conservative_facts(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             repo = Path(temp_dir) / "repo"

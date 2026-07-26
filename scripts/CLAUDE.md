@@ -49,8 +49,8 @@ python3 scripts/scan_repo.py --deep --limit 20000 /path/to/repo
 ## 关键依赖与配置
 
 - 只使用 Python 标准库：`argparse`、`json`、`os`、`re`、`datetime`、`pathlib`。
-- Not configured：无 `pyproject.toml`、`requirements.txt`、`ruff.toml`、`mypy.ini`、`pytest.ini`。
-- 这不是坏事。小脚本没必要先上工具链，先保持行为可测试。
+- `pyproject.toml` 仅声明项目名、版本和 Python >= 3.11。
+- GitHub Actions CI 仅运行 `python3 -m unittest discover tests`；Not configured：无 `requirements.txt`、`ruff.toml`、`mypy.ini`、`pytest.ini`。
 
 ## 数据模型
 

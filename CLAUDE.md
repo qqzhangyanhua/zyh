@@ -4,6 +4,7 @@
 
 | 时间 | 类型 | 说明 |
 | --- | --- | --- |
+| 2026-07-26 | 基建 | 完成 issue #2 prefactor：新增 `scripts/harness/` 包结构、薄 CLI、`schema_version: 2` 骨架、最小 `pyproject.toml` 与 GitHub Actions CI。 |
 | 2026-06-06 14:43:29 | 修复 | 修复 `detect_package_scripts` 绝对路径误跳过 bug；扫描器递归检测嵌套脚本并放开校验正则;新增 `truncated` 截断标记;新增 `scripts/check.sh` 作为统一检查入口。测试 23→27。 |
 | 2026-06-06 13:12:21 | 增量复扫 | 全量复扫仓库，未检测到源文件、模块边界或文档内容变化；仅刷新时间戳与覆盖率元数据。 |
 | 2026-06-05 20:33:44 | 初始化 | 扫描仓库并生成根级与模块级 Claude 工作文档。 |
@@ -14,10 +15,11 @@
 
 ## 架构总览
 
-这是一个小型 Python/Markdown 工具仓库，没有包管理器清单，也没有构建系统。核心由两个标准库 Python 脚本组成：
+这是一个小型 Python/Markdown 工具仓库，带最小 `pyproject.toml` 和 GitHub Actions CI。核心由两个薄 CLI 入口和 `scripts/harness/` 标准库 Python 包组成：
 
-- `scripts/scan_repo.py`：扫描目标仓库，生成保守事实到目标仓库 `.agent/repo-facts.json`。
-- `scripts/validate_harness_docs.py`：校验目标仓库是否具备最小 harness 文档、检查脚本和事实文件。
+- `scripts/scan_repo.py`：薄 CLI，解析参数后调用包内扫描函数，生成保守事实到目标仓库 `.agent/repo-facts.json`。
+- `scripts/validate_harness_docs.py`：薄 CLI，解析参数后调用包内校验函数，检查最小 harness 文档、检查脚本和事实文件。
+- `scripts/harness/`：扫描遍历、检测规则、schema v2 占位和文档校验实现。
 
 文档与模板定义 skill 的使用方式：
 
@@ -46,7 +48,7 @@ graph TD
 
 | 模块 | 职责 | 语言/类型 | 入口 | 测试 | 配置 |
 | --- | --- | --- | --- | --- | --- |
-| `scripts/` | 仓库扫描与 harness 文档校验脚本 | Python | `scripts/scan_repo.py`, `scripts/validate_harness_docs.py` | `tests/test_harness_scripts.py` | Not configured: 无 `pyproject.toml`、`pytest.ini`、`ruff.toml` |
+| `scripts/` | 仓库扫描与 harness 文档校验脚本 | Python | `scripts/scan_repo.py`, `scripts/validate_harness_docs.py` | `tests/test_harness_scripts.py` | 最小 `pyproject.toml` 声明 Python >= 3.11；无 `pytest.ini`、`ruff.toml` |
 | `tests/` | 脚本行为回归测试 | Python unittest | `tests/test_harness_scripts.py` | 自身为测试模块 | Not configured |
 | `references/` | 目标仓库 harness 文档模板 | Markdown | `references/templates.md` | 由校验脚本间接覆盖模板约束 | Not configured |
 | `agents/` | Agent 界面元数据 | YAML | `agents/openai.yaml` | Not configured | `agents/openai.yaml` |
@@ -56,13 +58,14 @@ graph TD
 已验证存在的命令来自仓库文档，而不是包管理器清单：
 
 ```sh
+python3 -m unittest discover tests
 python3 -m unittest tests/test_harness_scripts.py
 python3 scripts/scan_repo.py /path/to/repo
 python3 scripts/scan_repo.py --deep --limit 20000 /path/to/repo
 python3 scripts/validate_harness_docs.py /path/to/repo
 ```
 
-本仓库没有 `package.json`、`pyproject.toml`、`Makefile` 或 CI 配置。不要为了“看起来完整”引入 npm/pnpm/pytest/ruff，除非出现真实需求。
+本仓库有最小 `pyproject.toml`，仅声明项目名、版本和 Python >= 3.11；GitHub Actions CI 只跑 `python3 -m unittest discover tests`。不要为了“看起来完整”引入 npm/pnpm/pytest/ruff/mypy，除非出现真实需求。
 
 ## 测试策略
 
@@ -97,6 +100,16 @@ python3 scripts/validate_harness_docs.py /path/to/repo
 
 ## 当前缺口
 
-- 没有 CI 配置，发布前自动验证策略缺失。
-- `scripts/check.sh` 已就位（运行 `python3 -m unittest tests/test_harness_scripts.py`）；尚无 CI 在提交时自动调用它。
-- 没有 Python 项目清单或 lint/typecheck 配置；目前这是小仓库可以接受的简单状态，不要过早复杂化。
+- GitHub Actions CI 已就位，但只覆盖 Python 3.11/3.12 的 `unittest discover tests`，没有 lint/typecheck 阶段。
+- `scripts/check.sh` 已就位（运行 `python3 -m unittest tests/test_harness_scripts.py`）。
+- 没有 lint/typecheck 配置；目前这是小仓库可以接受的简单状态，不要过早复杂化。
+
+## Agent skills
+
+### Issue tracker
+
+Issues 和 PRD 使用 GitHub Issues 管理（`gh` CLI）。详见 `docs/agents/issue-tracker.md`。
+
+### Domain docs
+
+单上下文仓库 — 根级 `CONTEXT.md` + `docs/adr/`。详见 `docs/agents/domain.md`。
