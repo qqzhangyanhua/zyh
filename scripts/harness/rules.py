@@ -39,6 +39,9 @@ CI_CONFIG_NAMES = {
     "Jenkinsfile",
     "azure-pipelines.yml",
     "appveyor.yml",
+    "bitbucket-pipelines.yml",
+    ".drone.yml",
+    ".woodpecker.yml",
 }
 
 CI_CONFIG_DIRS = {
@@ -57,28 +60,83 @@ SCRIPT_DIRS = (
 )
 
 MANIFEST_NAMES = {
+    # Node.js
     "package.json",
     "pnpm-lock.yaml",
     "yarn.lock",
     "package-lock.json",
     "bun.lockb",
-    "pyproject.toml",
-    "requirements.txt",
-    "poetry.lock",
-    "Pipfile",
-    "go.mod",
-    "Cargo.toml",
-    "pom.xml",
-    "build.gradle",
-    "settings.gradle",
-    "Makefile",
-    "docker-compose.yml",
-    "Dockerfile",
     "pnpm-workspace.yaml",
     "lerna.json",
     "turbo.json",
     "nx.json",
+    # Python
+    "pyproject.toml",
+    "requirements.txt",
+    "poetry.lock",
+    "Pipfile",
+    # Go
+    "go.mod",
     "go.work",
+    # Rust
+    "Cargo.toml",
+    # Ruby
+    "Gemfile",
+    "Gemfile.lock",
+    # PHP
+    "composer.json",
+    "composer.lock",
+    # Elixir
+    "mix.exs",
+    "mix.lock",
+    # C++
+    "CMakeLists.txt",
+    "conanfile.txt",
+    "conanfile.py",
+    # Java / JVM
+    "pom.xml",
+    "build.gradle",
+    "settings.gradle",
+    # Bazel
+    "BUILD",
+    "WORKSPACE",
+    # toolchain version managers
+    ".tool-versions",
+    # container / infra
+    "Makefile",
+    "docker-compose.yml",
+    "Dockerfile",
+}
+
+# Maps manifest filename → ecosystem tag; used by detect_ecosystem_hypotheses.
+# Only include manifests that strongly imply a single ecosystem.
+MANIFEST_ECOSYSTEM: dict[str, str] = {
+    "package.json": "node",
+    "pnpm-lock.yaml": "node",
+    "yarn.lock": "node",
+    "package-lock.json": "node",
+    "bun.lockb": "node",
+    "pyproject.toml": "python",
+    "requirements.txt": "python",
+    "poetry.lock": "python",
+    "Pipfile": "python",
+    "go.mod": "go",
+    "go.work": "go",
+    "Cargo.toml": "rust",
+    "Gemfile": "ruby",
+    "Gemfile.lock": "ruby",
+    "composer.json": "php",
+    "composer.lock": "php",
+    "mix.exs": "elixir",
+    "mix.lock": "elixir",
+    "CMakeLists.txt": "cpp",
+    "conanfile.txt": "cpp",
+    "conanfile.py": "cpp",
+    "pom.xml": "java",
+    "build.gradle": "java",
+    "settings.gradle": "java",
+    "BUILD": "bazel",
+    "WORKSPACE": "bazel",
 }
 
 TEST_HINTS = (
@@ -89,6 +147,8 @@ TEST_HINTS = (
     "e2e",
 )
 
+TEST_EXACT_FILENAMES = {"conftest.py"}
+
 RISK_KEYWORDS = {
     "auth": "auth or authentication",
     "authentication": "auth or authentication",
@@ -97,12 +157,20 @@ RISK_KEYWORDS = {
     "billing": "billing",
     "payment": "payments",
     "payments": "payments",
+    "stripe": "payment processing (Stripe)",
     "migration": "database migrations",
     "migrations": "database migrations",
     "infra": "infrastructure",
     "deploy": "deployment",
+    "terraform": "infrastructure-as-code (Terraform)",
+    "kubernetes": "Kubernetes or K8s orchestration",
+    "k8s": "Kubernetes or K8s orchestration",
+    "helm": "Helm chart or Kubernetes package",
     "secret": "secrets",
     "secrets": "secrets",
+    "iam": "IAM or access control",
+    "rbac": "role-based access control",
+    "pii": "personally identifiable information",
     "generated": "generated files",
     "openapi": "public API or generated clients",
     "swagger": "public API or generated clients",
@@ -113,6 +181,10 @@ GENERATED_HINTS = (
     "generated",
     ".generated.",
     ".pb.",
+    ".gen.",
+    "_pb2.",
+    ".d.ts",
+    "__generated__",
     "openapi",
     "swagger",
     "graphql",

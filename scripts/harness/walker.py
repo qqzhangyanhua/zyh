@@ -6,6 +6,7 @@ import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from .rules import SKIP_DIR_PREFIXES, SKIP_DIRS
 
@@ -25,15 +26,18 @@ def should_skip_dir(path: Path) -> bool:
     return _skip_dir_name(path.name)
 
 
-def walk_files(root: Path, limit: int) -> list[Path]:
-    return walk_repo(root, limit).files
+def count_files(root: Path) -> dict[str, Any]:
+    """Count files without building Path objects. Returns total and per-top-dir counts."""
+    if _is_git_repo(root):
+        return _git_count_files(root)
+    return _os_walk_count_files(root)
 
 
-def walk_repo(root: Path, limit: int) -> WalkResult:
+def walk_repo(root: Path, limit: int, quota: dict[str, int] | None = None) -> WalkResult:
     if _is_git_repo(root):
         submodules = _git_submodules(root)
         return WalkResult(
-            files=_git_files(root, limit, {item["path"] for item in submodules}),
+            files=_git_files(root, limit, {item["path"] for item in submodules}, quota),
             ignored_top_dirs=_git_ignored_top_dirs(root),
             submodules=submodules,
         )
@@ -70,6 +74,39 @@ def _os_walk_files(root: Path, limit: int) -> list[Path]:
     return files
 
 
+def _git_count_files(root: Path) -> dict[str, Any]:
+    result = _run_git(root, "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--deduplicate")
+    if result.returncode != 0:
+        return _os_walk_count_files(root)
+    by_top: dict[str, int] = {}
+    total = 0
+    for raw in result.stdout.split("\0"):
+        if not raw:
+            continue
+        total += 1
+        top = raw.split("/", 1)[0]
+        by_top[top] = by_top.get(top, 0) + 1
+    return {"total": total, "by_top_dir": by_top}
+
+
+def _os_walk_count_files(root: Path) -> dict[str, Any]:
+    by_top: dict[str, int] = {}
+    total = 0
+    root_str = str(root)
+    sep = os.sep
+    for current, dirs, names in os.walk(root):
+        dirs[:] = sorted(d for d in dirs if not _skip_dir_name(d))
+        if current == root_str:
+            top = "."
+        else:
+            top = current[len(root_str) + len(sep):].split(sep, 1)[0]
+        count = len(names)
+        total += count
+        if count:
+            by_top[top] = by_top.get(top, 0) + count
+    return {"total": total, "by_top_dir": by_top}
+
+
 def _is_git_repo(root: Path) -> bool:
     if (root / ".git").exists():
         return True
@@ -77,7 +114,9 @@ def _is_git_repo(root: Path) -> bool:
     return result.returncode == 0
 
 
-def _git_files(root: Path, limit: int, submodule_paths: set[str]) -> list[Path]:
+def _git_files(
+    root: Path, limit: int, submodule_paths: set[str], quota: dict[str, int] | None = None
+) -> list[Path]:
     result = _run_git(
         root,
         "ls-files",
@@ -90,9 +129,15 @@ def _git_files(root: Path, limit: int, submodule_paths: set[str]) -> list[Path]:
     if result.returncode != 0:
         return _os_walk_files(root, limit)
     paths: list[Path] = []
+    top_counts: dict[str, int] = {}
     for raw_path in result.stdout.split("\0"):
         if not raw_path or raw_path in submodule_paths:
             continue
+        if quota is not None:
+            top = raw_path.split("/", 1)[0]
+            if top_counts.get(top, 0) >= quota.get(top, 0):
+                continue
+            top_counts[top] = top_counts.get(top, 0) + 1
         paths.append(root / raw_path)
         if len(paths) >= limit:
             return paths
@@ -115,41 +160,13 @@ def _git_submodules(root: Path) -> list[dict[str, str]]:
     result = _run_git(root, "submodule", "status")
     if result.returncode != 0:
         return []
-    urls = _git_submodule_urls(root)
     submodules: list[dict[str, str]] = []
     for line in result.stdout.splitlines():
         parts = line.strip().split()
         if len(parts) < 2:
             continue
-        path = parts[1]
-        item = {"path": path}
-        url = urls.get(path)
-        if url:
-            item["url"] = url
-        submodules.append(item)
+        submodules.append({"path": parts[1]})
     return submodules
-
-
-def _git_submodule_urls(root: Path) -> dict[str, str]:
-    result = _run_git(root, "config", "--file", ".gitmodules", "--get-regexp", r"^submodule\..*\.url$")
-    if result.returncode != 0:
-        return {}
-    urls: dict[str, str] = {}
-    for line in result.stdout.splitlines():
-        key, _, url = line.partition(" ")
-        if not url:
-            continue
-        path = _git_submodule_path(root, key.removesuffix(".url"))
-        if path:
-            urls[path] = url
-    return urls
-
-
-def _git_submodule_path(root: Path, section: str) -> str:
-    result = _run_git(root, "config", "--file", ".gitmodules", "--get", f"{section}.path")
-    if result.returncode != 0:
-        return ""
-    return result.stdout.strip()
 
 
 def _run_git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
