@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
-from .scanner import scan
+from .scanner import FileLimitError, scan
 from .validator import (
     UNSUPPORTED_SCHEMA_KEY,
     validate_agents,
@@ -24,14 +25,23 @@ def scan_main() -> int:
     parser.add_argument("--limit", type=int, default=5000, help="Maximum files to scan")
     parser.add_argument("--deep", action="store_true", help="Collect extra docs, config, flow, and missing-capability facts")
     parser.add_argument("--output", help="Output JSON path; defaults to <repo>/.agent/repo-facts.json")
+    parser.add_argument("--full", action="store_true", help="Also write repo-facts.full.json with unrestricted candidate lists")
+    parser.add_argument("--force", action="store_true", help="Scan repositories exceeding the 500k-file limit")
     args = parser.parse_args()
 
     root = Path(args.repo)
     if not root.is_dir():
         parser.error(f"repo is not a directory: {root}")
 
-    facts = scan(root, args.limit, args.deep)
     output = Path(args.output) if args.output else root / ".agent" / "repo-facts.json"
+    full_output = output.parent / "repo-facts.full.json" if args.full else None
+
+    try:
+        facts = scan(root, args.limit, args.deep, full_output=full_output, force=args.force)
+    except FileLimitError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(facts, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(output)
