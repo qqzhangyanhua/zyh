@@ -4,6 +4,7 @@
 
 | 时间 | 类型 | 说明 |
 | --- | --- | --- |
+| 2026-10-20 | 修复 | 扫描准确性修复：`--limit` 默认 50000，总数超过上限时按顶层目录比例配额 + 目录内等距抽样（git/非 git、`--force` 一致），不再按字母序截断漏扫整个目录；`truncated` 改为与真实总数比较；git 根级文件计入 `.`，`.agent/` 输出不再回流；去掉探测器内部 200/100 截断，`*_total`/`*_truncated`/`--full` 真实可信（Makefile 用解析器自身计数）；风险检测改为路径 token 匹配（拆 camelCase，长关键词允许前缀），一条路径可有多个原因，消除 `author`/`williams`/`prototype` 误报；校验器按 `RISK_MENTION_RULES` 覆盖 K8s/Helm/IAM/RBAC/PII/Stripe 并支持别名；`check.sh` 命令校验忽略注释、按整词匹配并扩充黑名单（jest/vitest/tox/gradlew/rspec 等）；CI 命令支持 GitLab/Bitbucket `script:` 列表与 CircleCI `run.command`，`.github/` 只认 `workflows/`、`actions/` 下的 YAML；git 不可用时回退 `os.walk`；忽略目录探测加 `--directory`；`package.json` 搜索剪枝 SKIP_DIRS；删除死代码 `extract_makefile_targets`、空 `parsers.py`；新增 `references/repo-facts.md` 字段说明并让 SKILL/模板引用新事实；`check.sh` 改跑全部测试；CI 增加 Python 3.13。新增 25 个测试，全部 165 个测试通过。 |
 | 2026-07-27 | 功能 | 完成 issue #7 Slice 5：新增 `scripts/harness/content_detectors.py`，带共享 `ContentBudget`（默认 8 MiB，`--content-budget-bytes` 可调）的内容层探测：`extract_ci_commands`（GHA/GitLab/CircleCI 等 `run:` 单行命令 + `\|` 多行块首行，标 `multiline`）、`extract_dockerfile_directives`（RUN/CMD/ENTRYPOINT/WORKDIR/USER/EXPOSE）、`extract_tool_configs`（`pyproject.toml [tool.*]` 仅取 top-level 键名，覆盖 pytest/ruff/mypy/black/coverage.*）、`extract_env_keys`（仅 `.example`/`.sample`/`.template`，真实 `.env` 跳过并记 `parse_errors[kind=skipped_dotenv]`，永不读 value）、`extract_precommit_hooks_detail`（`repos[].hooks[].id`）、`extract_codeowners`、`extract_security_md`（前 200 字符摘要）；预算耗尽的文件记入 `content_read_truncated`；`scanner.py` 新增 `_dedupe_parse_errors` 消除同文件被多个探测器重复解析导致的 `parse_errors` 重复项；`schema.py` 补 `security_md`/`content_budget_bytes` 占位符。新增 24 个测试，全部 140 个测试通过。不读 README 命令块，不做 Python 入口探测（按 issue 要求留白）。 |
 | 2026-07-27 | 功能 | 完成 issue #6 Slice 4：新增 `scripts/harness/task_parsers.py`（217行）；`extract_makefile_info` 支持 include 指令（深度≤2、visited 防循环）、`.PHONY` 标记、200 条限制；`extract_pyproject_scripts` 覆盖 `[project.scripts]`/`[tool.poetry.scripts]`/`[tool.pdm.scripts]`/`[tool.hatch.envs.*.scripts]`/`[tool.uv.workspace.members]`/`[tool.poetry.groups]`；`extract_cargo_info` 提取 workspace members + binary 名；`extract_go_work_modules` 解析 go.work；`extract_justfile_recipes` 正则解析；`_parse_yaml_section_keys` 无外部依赖受限 YAML，支持 Taskfile.yml 与 docker-compose.yml；`extract_workspace_packages`；`schema.py` 增 9 个占位字段；`scanner.py` 集成所有解析器并聚合 `parse_errors`；新增 34 个测试，全部 116 个测试通过。 |
 | 2026-07-27 | 功能 | 完成 issue #5 Slice 3：`rules.py` 扩展语言规则表（Ruby/PHP/Elixir/C++/Bazel/asdf manifests）；新增 `MANIFEST_ECOSYSTEM` dict；`CI_CONFIG_NAMES` 增 Bitbucket/Drone/Woodpecker；`TEST_EXACT_FILENAMES` 支持 `conftest.py`；`GENERATED_HINTS` 增 `.gen.`/`_pb2.`/`.d.ts`/`__generated__`；`RISK_KEYWORDS` 增 IAM/RBAC/PII/Stripe/Terraform/K8s/Helm；`detectors.py` 新增 `detect_ecosystem_hypotheses()`；`scanner.py` 填充 `ecosystem_hypotheses` 字段替代占位符 `[]`。新增 29 个端到端测试，全部 82 个测试通过。 |
@@ -33,6 +34,7 @@
 - `README.md`：用户视角的功能说明、快速使用和开发说明。
 - `AGENTS.md`：本仓库贡献者工作准则。
 - `references/templates.md`：生成目标仓库 harness 文档时使用的模板。
+- `references/repo-facts.md`：`.agent/repo-facts.json` 字段说明。
 - `agents/openai.yaml`：Agent 配置元数据。
 
 ## 模块结构图（Mermaid）
@@ -54,8 +56,8 @@ graph TD
 
 | 模块 | 职责 | 语言/类型 | 入口 | 测试 | 配置 |
 | --- | --- | --- | --- | --- | --- |
-| `scripts/` | 仓库扫描与 harness 文档校验脚本 | Python | `scripts/scan_repo.py`, `scripts/validate_harness_docs.py` | `tests/test_harness_scripts.py` | 最小 `pyproject.toml` 声明 Python >= 3.11；无 `pytest.ini`、`ruff.toml` |
-| `tests/` | 脚本行为回归测试 | Python unittest | `tests/test_harness_scripts.py` | 自身为测试模块 | Not configured |
+| `scripts/` | 仓库扫描与 harness 文档校验脚本 | Python | `scripts/scan_repo.py`, `scripts/validate_harness_docs.py` | `tests/test_*.py` | 最小 `pyproject.toml` 声明 Python >= 3.11；无 `pytest.ini`、`ruff.toml` |
+| `tests/` | 脚本行为回归测试 | Python unittest | `python3 -m unittest discover tests` | 自身为测试模块 | Not configured |
 | `references/` | 目标仓库 harness 文档模板 | Markdown | `references/templates.md` | 由校验脚本间接覆盖模板约束 | Not configured |
 | `agents/` | Agent 界面元数据 | YAML | `agents/openai.yaml` | Not configured | `agents/openai.yaml` |
 
@@ -65,9 +67,9 @@ graph TD
 
 ```sh
 python3 -m unittest discover tests
-python3 -m unittest tests/test_harness_scripts.py
+scripts/check.sh
 python3 scripts/scan_repo.py /path/to/repo
-python3 scripts/scan_repo.py --deep --limit 20000 /path/to/repo
+python3 scripts/scan_repo.py --deep /path/to/repo
 python3 scripts/validate_harness_docs.py /path/to/repo
 ```
 
@@ -76,7 +78,7 @@ python3 scripts/validate_harness_docs.py /path/to/repo
 ## 测试策略
 
 - 测试框架：Python 标准库 `unittest`。
-- 测试入口：`tests/test_harness_scripts.py`。
+- 测试入口：`python3 -m unittest discover tests`（`scripts/check.sh` 同此命令）。
 - 测试方式：使用临时目录构造目标仓库，验证扫描输出、文档校验、风险候选、缺失能力、脚本引用和反猜测规则。
 - 修改脚本行为时，先补测试，再改脚本；否则就是在破坏已有用户行为。
 
@@ -107,7 +109,7 @@ python3 scripts/validate_harness_docs.py /path/to/repo
 ## 当前缺口
 
 - GitHub Actions CI 已就位，但只覆盖 Python 3.11/3.12 的 `unittest discover tests`，没有 lint/typecheck 阶段。
-- `scripts/check.sh` 已就位（运行 `python3 -m unittest tests/test_harness_scripts.py`）。
+- `scripts/check.sh` 已就位（运行 `python3 -m unittest discover tests`，与 CI 一致）。
 - 没有 lint/typecheck 配置；目前这是小仓库可以接受的简单状态，不要过早复杂化。
 
 ## Agent skills

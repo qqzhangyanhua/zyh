@@ -18,12 +18,19 @@ from .rules import (
     MANIFEST_ECOSYSTEM,
     MANIFEST_NAMES,
     RISK_KEYWORDS,
+    RISK_PREFIX_MIN_LEN,
     SCRIPT_DIRS,
-    SKIP_DIRS,
     TEST_EXACT_FILENAMES,
     TEST_HINTS,
 )
-from .walker import rel
+from .walker import rel, skip_dir_name
+
+_CAMEL_ACRONYM_RE = re.compile(r"([A-Z]+)([A-Z][a-z])")
+_CAMEL_RE = re.compile(r"([a-z0-9])([A-Z])")
+_TOKEN_SPLIT_RE = re.compile(r"[^a-z0-9]+")
+_CI_YAML_SUFFIXES = (".yml", ".yaml")
+_GITHUB_CI_SUBDIRS = ("workflows", "actions")
+
 
 def detect_manifests(files: list[Path], root: Path) -> list[str]:
     return [rel(path, root) for path in files if path.name in MANIFEST_NAMES]
@@ -52,7 +59,7 @@ def detect_tests(files: list[Path], root: Path) -> list[str]:
             or name in TEST_EXACT_FILENAMES
         ):
             hits.append(rel(path, root))
-    return hits[:200]
+    return hits
 
 
 def detect_generated(files: list[Path], root: Path) -> list[str]:
@@ -61,23 +68,35 @@ def detect_generated(files: list[Path], root: Path) -> list[str]:
         relative = rel(path, root).lower()
         if any(hint in relative for hint in GENERATED_HINTS):
             hits.append(rel(path, root))
-    return hits[:200]
+    return hits
+
+
+def path_tokens(relative: str) -> list[str]:
+    spaced = _CAMEL_RE.sub(r"\1 \2", _CAMEL_ACRONYM_RE.sub(r"\1 \2", relative))
+    return [token for token in _TOKEN_SPLIT_RE.split(spaced.lower()) if token]
+
+
+def _keyword_matches(keyword: str, token: str) -> bool:
+    # Short keywords (auth, iam, pii, k8s) must match a whole token to avoid hits like
+    # "author" or "williams"; longer ones may prefix-match ("secretsManager", "deployer").
+    if len(keyword) >= RISK_PREFIX_MIN_LEN:
+        return token.startswith(keyword)
+    return token == keyword
 
 
 def detect_risks(files: list[Path], root: Path) -> list[dict[str, str]]:
-    seen: set[tuple[str, str]] = set()
     risks: list[dict[str, str]] = []
     for path in files:
         relative = rel(path, root)
-        lowered = relative.lower()
+        tokens = path_tokens(relative)
+        reasons: list[str] = []
         for keyword, reason in RISK_KEYWORDS.items():
-            if keyword in lowered:
-                key = (relative, reason)
-                if key not in seen:
-                    risks.append({"path": relative, "reason": reason})
-                    seen.add(key)
-                break
-    return risks[:200]
+            if reason in reasons:
+                continue
+            if any(_keyword_matches(keyword, token) for token in tokens):
+                reasons.append(reason)
+        risks.extend({"path": relative, "reason": reason} for reason in reasons)
+    return risks
 
 
 def detect_existing_scripts(root: Path) -> list[str]:
@@ -87,7 +106,7 @@ def detect_existing_scripts(root: Path) -> list[str]:
         if not script_dir.is_dir():
             continue
         for current, dirs, names in os.walk(script_dir):
-            dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
+            dirs[:] = sorted(d for d in dirs if not skip_dir_name(d))
             current_path = Path(current)
             for name in sorted(names):
                 results.append((current_path / name).relative_to(root).as_posix())
@@ -101,9 +120,18 @@ def detect_ci_configs(files: list[Path], root: Path) -> list[str]:
         parts = path.relative_to(root).parts
         if path.name in CI_CONFIG_NAMES:
             hits.append(relative)
-        elif parts and parts[0] in CI_CONFIG_DIRS:
+        elif parts and parts[0] in CI_CONFIG_DIRS and _is_ci_dir_config(parts):
             hits.append(relative)
-    return hits[:100]
+    return hits
+
+
+def _is_ci_dir_config(parts: tuple[str, ...]) -> bool:
+    # CI directories also hold CODEOWNERS, issue templates, and dependabot config.
+    if not parts[-1].lower().endswith(_CI_YAML_SUFFIXES):
+        return False
+    if parts[0] == ".github":
+        return len(parts) > 2 and parts[1] in _GITHUB_CI_SUBDIRS
+    return True
 
 
 def detect_precommit_hooks(root: Path) -> list[str]:
@@ -131,28 +159,9 @@ def detect_precommit_hooks(root: Path) -> list[str]:
     return hooks
 
 
-def extract_makefile_targets(root: Path) -> list[str]:
-    makefile = root / "Makefile"
-    if not makefile.exists():
-        return []
-    try:
-        lines = makefile.read_text(encoding="utf-8", errors="replace").splitlines()
-    except OSError:
-        return []
-    targets: list[str] = []
-    pattern = re.compile(r"^([a-zA-Z][a-zA-Z0-9_\-]*):")
-    for line in lines:
-        match = pattern.match(line)
-        if match:
-            targets.append(match.group(1))
-    return targets[:50]
-
-
 def detect_package_scripts(root: Path) -> dict[str, list[str]]:
     results: dict[str, list[str]] = {}
-    for package_json in root.rglob("package.json"):
-        if any(part in SKIP_DIRS for part in package_json.relative_to(root).parts):
-            continue
+    for package_json in _find_named_files(root, "package.json"):
         try:
             data = json.loads(package_json.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
@@ -161,6 +170,16 @@ def detect_package_scripts(root: Path) -> dict[str, list[str]]:
         if isinstance(scripts, dict):
             results[rel(package_json, root)] = sorted(str(name) for name in scripts.keys())
     return results
+
+
+def _find_named_files(root: Path, filename: str) -> list[Path]:
+    """Walk with skip-dir pruning so node_modules and build trees are never descended into."""
+    found: list[Path] = []
+    for current, dirs, names in os.walk(root):
+        dirs[:] = sorted(d for d in dirs if not skip_dir_name(d))
+        if filename in names:
+            found.append(Path(current) / filename)
+    return found
 
 
 def detect_configs(files: list[Path], root: Path) -> list[str]:
@@ -173,7 +192,7 @@ def detect_docs(files: list[Path], root: Path) -> list[str]:
         relative = rel(path, root)
         if path.name in DOC_NAMES or (relative.startswith("docs/") and path.suffix.lower() == ".md"):
             docs.append(relative)
-    return docs[:200]
+    return docs
 
 
 def detect_important_flows(files: list[Path], root: Path) -> list[dict[str, str]]:
@@ -187,7 +206,7 @@ def detect_important_flows(files: list[Path], root: Path) -> list[dict[str, str]
                 flows.append({"path": relative, "purpose": purpose})
                 seen.add(relative)
                 break
-    return flows[:200]
+    return flows
 
 
 def detect_script_commands(root: Path) -> dict[str, str]:

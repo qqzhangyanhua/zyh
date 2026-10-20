@@ -30,9 +30,10 @@
 │   ├── validate_harness_docs.py      # 薄 CLI：校验目标仓库的 harness 文档
 │   └── harness/                      # 扫描、检测、schema、校验与 CLI 实现
 ├── tests/
-│   └── test_harness_scripts.py      # 脚本单元测试
+│   └── test_*.py                    # 脚本单元测试（helpers.py 为共享夹具）
 ├── references/
-│   └── templates.md                 # harness 文档模板
+│   ├── templates.md                 # harness 文档模板
+│   └── repo-facts.md                # repo-facts.json 字段说明
 └── agents/
     └── openai.yaml                  # Agent 配置元数据
 ```
@@ -48,8 +49,10 @@ python3 scripts/scan_repo.py /path/to/repo
 如果目标仓库信息不足，可以使用深度扫描：
 
 ```bash
-python3 scripts/scan_repo.py --deep --limit 20000 /path/to/repo
+python3 scripts/scan_repo.py --deep /path/to/repo
 ```
+
+默认最多扫描 50000 个文件；超过 `--limit` 时按顶层目录比例抽样，并在 `truncated`、`truncation_strategy` 中标明。超过 50 万文件的仓库默认拒绝扫描，可用 `--force` 强制抽样；`--full` 额外写出不截断的 `repo-facts.full.json`。字段说明见 `references/repo-facts.md`。
 
 扫描后，目标仓库会生成 `.agent/repo-facts.json`。根据扫描结果补齐或更新：
 
@@ -74,10 +77,10 @@ python3 scripts/validate_harness_docs.py /path/to/repo
 运行测试：
 
 ```bash
-python3 -m unittest tests/test_harness_scripts.py
+python3 -m unittest discover tests
 ```
 
-修改脚本时，优先补充 `tests/test_harness_scripts.py` 中的行为测试。修改文档时，保持内容短、具体、可执行，避免把 README 或 `AGENTS.md` 写成大型提示词。
+修改脚本时，先在 `tests/` 下补充行为测试。修改文档时，保持内容短、具体、可执行，避免把 README 或 `AGENTS.md` 写成大型提示词。
 
 ## 输出约定
 

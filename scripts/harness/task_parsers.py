@@ -25,6 +25,7 @@ def extract_makefile_info(root: Path, errors: list[dict[str, str]]) -> dict[str,
     phony_set = {p for p in phony if p in seen}
     return {
         "targets": unique[:_TASK_LIMIT],
+        "all_targets": unique,
         "targets_total": len(unique),
         "targets_truncated": len(unique) > _TASK_LIMIT,
         "phony": sorted(phony_set),
@@ -86,7 +87,8 @@ def extract_pyproject_scripts(root: Path, errors: list[dict[str, str]]) -> dict[
         scripts["[tool.poetry.scripts]"] = sorted(poetry)
     if isinstance(pdm := data.get("tool", {}).get("pdm", {}).get("scripts"), dict):
         scripts["[tool.pdm.scripts]"] = sorted(pdm)
-    for env_name, env_data in data.get("tool", {}).get("hatch", {}).get("envs", {}).items():
+    hatch_envs = data.get("tool", {}).get("hatch", {}).get("envs", {})
+    for env_name, env_data in (hatch_envs.items() if isinstance(hatch_envs, dict) else []):
         if isinstance(env_data, dict) and isinstance(env_data.get("scripts"), dict):
             scripts[f"[tool.hatch.envs.{env_name}.scripts]"] = sorted(env_data["scripts"])
     if isinstance(uv_members := data.get("tool", {}).get("uv", {}).get("workspace", {}).get("members"), list):

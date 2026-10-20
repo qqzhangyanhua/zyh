@@ -8,17 +8,18 @@ This repository contains the `harness` Codex skill for preparing unfamiliar or l
 - `scripts/scan_repo.py`: thin CLI entry that scans a target repository and writes conservative facts to `.agent/repo-facts.json`.
 - `scripts/validate_harness_docs.py`: thin CLI entry that validates generated harness documentation and `scripts/check.sh`.
 - `scripts/harness/`: scanner, validator, detector, traversal, rule, and schema modules used by the CLI entries.
-- `tests/test_harness_scripts.py`: unit tests for the scan and validation scripts.
+- `tests/`: unit tests for the scan and validation scripts (`helpers.py` holds shared fixtures).
 - `references/templates.md`: source templates for harness documentation.
+- `references/repo-facts.md`: field guide for `.agent/repo-facts.json`.
 - `agents/openai.yaml`: agent configuration metadata.
 
 Keep durable guidance in `SKILL.md` or `references/`; keep executable behavior in `scripts/`; keep regression coverage in `tests/`.
 
 ## Build, Test, and Development Commands
 
-- `python3 -m unittest tests/test_harness_scripts.py`: run the full local test suite.
+- `python3 -m unittest discover tests` or `scripts/check.sh`: run the full local test suite.
 - `python3 scripts/scan_repo.py /path/to/repo`: scan a target repo and create `.agent/repo-facts.json`.
-- `python3 scripts/scan_repo.py --deep --limit 20000 /path/to/repo`: collect deeper doc hints when shallow facts are insufficient.
+- `python3 scripts/scan_repo.py --deep /path/to/repo`: collect deeper doc hints when shallow facts are insufficient.
 - `python3 scripts/validate_harness_docs.py /path/to/repo`: validate the required harness docs in a target repo.
 
 `pyproject.toml` declares the project metadata and Python >= 3.11. There is still no package manager workflow beyond standard-library Python scripts; do not introduce `npm`, `pnpm`, or build tooling unless the repository gains a real need for it.
@@ -31,7 +32,7 @@ Markdown should be concise, instructional, and repo-specific. Prefer short secti
 
 ## Testing Guidelines
 
-Tests use Python `unittest` and temporary directories to verify behavior without touching real target repos. Name new tests `test_<behavior>` and cover both accepted and rejected cases when changing validator rules. Run `python3 -m unittest tests/test_harness_scripts.py` before reporting script or workflow changes as complete.
+Tests use Python `unittest` and temporary directories to verify behavior without touching real target repos. Name new tests `test_<behavior>` and cover both accepted and rejected cases when changing validator rules. Run `python3 -m unittest discover tests` before reporting script or workflow changes as complete.
 
 ## Commit & Pull Request Guidelines
 

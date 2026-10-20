@@ -149,25 +149,33 @@ TEST_HINTS = (
 
 TEST_EXACT_FILENAMES = {"conftest.py"}
 
+# Keywords are matched against path tokens (split on punctuation and camelCase).
+# Keywords at least RISK_PREFIX_MIN_LEN long also match as a token prefix.
+RISK_PREFIX_MIN_LEN = 6
+
 RISK_KEYWORDS = {
     "auth": "auth or authentication",
+    "oauth": "auth or authentication",
+    "oauth2": "auth or authentication",
+    "authn": "auth or authentication",
+    "authz": "auth or authentication",
     "authentication": "auth or authentication",
+    "authorization": "auth or authentication",
+    "authorize": "auth or authentication",
     "permission": "permissions",
-    "permissions": "permissions",
     "billing": "billing",
     "payment": "payments",
-    "payments": "payments",
     "stripe": "payment processing (Stripe)",
     "migration": "database migrations",
-    "migrations": "database migrations",
+    "migrate": "database migrations",
     "infra": "infrastructure",
+    "infrastructure": "infrastructure",
     "deploy": "deployment",
     "terraform": "infrastructure-as-code (Terraform)",
     "kubernetes": "Kubernetes or K8s orchestration",
     "k8s": "Kubernetes or K8s orchestration",
     "helm": "Helm chart or Kubernetes package",
     "secret": "secrets",
-    "secrets": "secrets",
     "iam": "IAM or access control",
     "rbac": "role-based access control",
     "pii": "personally identifiable information",
@@ -175,6 +183,8 @@ RISK_KEYWORDS = {
     "openapi": "public API or generated clients",
     "swagger": "public API or generated clients",
     "proto": "public API or generated clients",
+    "protos": "public API or generated clients",
+    "protobuf": "public API or generated clients",
 }
 
 GENERATED_HINTS = (
@@ -277,29 +287,53 @@ REQUIRED_AGENTS_REFERENCES = [
     "docs/agent-plan-template.md",
 ]
 
-RISK_TERMS = [
-    "auth",
-    "permission",
-    "billing",
-    "payments",
-    "migration",
-    "deployment",
-    "infra",
-    "secret",
-    "generated",
-    "public api",
+# (label, substrings of a detected risk reason that make the label required,
+#  words in docs/dangerous-areas.md that satisfy it). Doc words match at a word start.
+RISK_MENTION_RULES: list[tuple[str, tuple[str, ...], tuple[str, ...]]] = [
+    ("auth", ("auth",), ("auth",)),
+    ("permission", ("permission",), ("permission",)),
+    ("billing", ("billing",), ("billing",)),
+    ("payments", ("payment",), ("payment",)),
+    ("migration", ("migration",), ("migration",)),
+    ("deployment", ("deployment",), ("deploy",)),
+    ("infra", ("infra",), ("infra",)),
+    ("secret", ("secret",), ("secret",)),
+    ("generated", ("generated",), ("generated",)),
+    ("public api", ("public api",), ("public api",)),
+    ("kubernetes", ("kubernetes",), ("kubernetes", "k8s")),
+    ("helm", ("helm",), ("helm",)),
+    ("access control", ("access control",), ("access control", "iam", "rbac")),
+    (
+        "personally identifiable information",
+        ("personally identifiable information",),
+        ("personally identifiable information", "pii"),
+    ),
 ]
 
 UNVERIFIED_COMMANDS = [
     "pnpm test",
+    "pnpm run test",
     "npm test",
+    "npm run test",
     "yarn test",
+    "yarn run test",
     "bun test",
+    "jest",
+    "vitest",
     "pytest",
+    "tox",
+    "nox",
     "make test",
     "cargo test",
     "go test",
     "mvn test",
+    "gradle test",
+    "./gradlew test",
+    "rspec",
+    "phpunit",
+    "mix test",
+    "ctest",
+    "dotnet test",
 ]
 
 RUNTIME_GUESS_PATTERNS = [

@@ -46,7 +46,7 @@
 
 ## 测试与质量
 
-模板约束由 `scripts/validate_harness_docs.py` 和 `tests/test_harness_scripts.py` 间接保护。尤其要保持：
+模板约束由 `scripts/validate_harness_docs.py` 和 `tests/test_harness_validate.py` 间接保护。尤其要保持：
 
 - `AGENTS.md` 只做入口，不塞成长文档。
 - `scripts/check.sh` 只能调用已存在脚本或打印待配置状态。

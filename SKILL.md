@@ -24,7 +24,9 @@ Do not use for ordinary questions about this skill, repo orientation, or pasted 
 ## Required Flow
 
 1. Run `python3 scripts/scan_repo.py <repo>` from this skill directory before writing harness docs.
-   - If the user asks to spend more time, reduce TODOs, or finish in one pass, run `python3 scripts/scan_repo.py --deep --limit 20000 <repo>`.
+   - If the user asks to spend more time, reduce TODOs, or finish in one pass, run `python3 scripts/scan_repo.py --deep <repo>`.
+   - If `truncated` is true, the scan sampled files per top-level directory. Say so in the docs, and rescan a directory from `suggested_shards` when it matters.
+   - Repos over 500k files are refused; `--force` samples them anyway. `--full` also writes uncapped candidate lists to `.agent/repo-facts.full.json`.
 2. Generate or update:
    - `AGENTS.md`
    - `docs/project-map.md`
@@ -34,7 +36,7 @@ Do not use for ordinary questions about this skill, repo orientation, or pasted 
    - `docs/agent-plan-template.md`
    - `scripts/check.sh`
 3. Use `references/templates.md` as the template source.
-4. Use facts from `.agent/repo-facts.json`. If a fact is missing, classify it instead of guessing:
+4. Use facts from `.agent/repo-facts.json` (field guide: `references/repo-facts.md`). If a fact is missing, classify it instead of guessing:
    - `Not configured`: the repo scan/docs show the capability is absent.
    - `Needs human confirmation`: the repo has candidates but no source of truth.
    - `TODO`: only for future work the user explicitly wants tracked.
@@ -47,7 +49,8 @@ Do not use for ordinary questions about this skill, repo orientation, or pasted 
 | Need | Use |
 | --- | --- |
 | Repo facts | `python3 scripts/scan_repo.py /path/to/repo` |
-| Deep facts | `python3 scripts/scan_repo.py --deep --limit 20000 /path/to/repo` |
+| Deep facts | `python3 scripts/scan_repo.py --deep /path/to/repo` |
+| Fact fields | `references/repo-facts.md` |
 | Templates | `references/templates.md` |
 | Validation | `python3 scripts/validate_harness_docs.py /path/to/repo` |
 | Missing capability | `Not configured: ...` |
@@ -75,4 +78,4 @@ Do not use for ordinary questions about this skill, repo orientation, or pasted 
 | `check.sh` runs unverified commands | call existing scripts only, otherwise print TODO |
 | Treating generated files as docs-only advice | add generated paths to dangerous areas and checks |
 | Skipping validation because docs are simple | run the validator every time |
-| Leaving noisy TODOs after a shallow pass | rerun with `--deep --limit 20000`, read doc hints, and classify unresolved items |
+| Leaving noisy TODOs after a shallow pass | rerun with `--deep`, read doc hints, and classify unresolved items |

@@ -230,6 +230,106 @@ class HarnessValidateTests(unittest.TestCase):
             self.assertEqual(result.returncode, 1)
             self.assertIn("must mention payments", result.stdout)
 
+    def _write_dangerous_doc(self, repo: Path, body: str) -> None:
+        (repo / "docs/dangerous-areas.md").write_text(f"# Dangerous Areas\n\n{body}\n", encoding="utf-8")
+
+    def test_validate_requires_kubernetes_when_detected(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir) / "repo"
+            (repo / "k8s").mkdir(parents=True)
+            (repo / "k8s" / "app.yaml").write_text("", encoding="utf-8")
+            run_script(str(SCAN), str(repo))
+            write_minimal_harness(repo, "#!/usr/bin/env sh\nset -eu\n")
+
+            rejected = run_script(str(VALIDATE), str(repo))
+            self.assertEqual(rejected.returncode, 1)
+            self.assertIn("must mention kubernetes", rejected.stdout)
+
+            self._write_dangerous_doc(repo, "- K8s manifests under k8s/")
+            accepted = run_script(str(VALIDATE), str(repo))
+            self.assertEqual(accepted.returncode, 0, accepted.stdout)
+
+    def test_validate_requires_access_control_for_iam_and_rbac(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir) / "repo"
+            (repo / "iam").mkdir(parents=True)
+            (repo / "iam" / "policy.py").write_text("", encoding="utf-8")
+            run_script(str(SCAN), str(repo))
+            write_minimal_harness(repo, "#!/usr/bin/env sh\nset -eu\n")
+            self._write_dangerous_doc(repo, "- william wrote this")
+
+            rejected = run_script(str(VALIDATE), str(repo))
+            self.assertEqual(rejected.returncode, 1)
+            self.assertIn("must mention access control", rejected.stdout)
+
+            self._write_dangerous_doc(repo, "- IAM policies under iam/")
+            accepted = run_script(str(VALIDATE), str(repo))
+            self.assertEqual(accepted.returncode, 0, accepted.stdout)
+
+    def test_validate_requires_pii_and_stripe_payments(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir) / "repo"
+            (repo / "src").mkdir(parents=True)
+            (repo / "src" / "pii_handler.py").write_text("", encoding="utf-8")
+            (repo / "src" / "stripe_webhook.py").write_text("", encoding="utf-8")
+            run_script(str(SCAN), str(repo))
+            write_minimal_harness(repo, "#!/usr/bin/env sh\nset -eu\n")
+            self._write_dangerous_doc(repo, "- nothing here")
+
+            rejected = run_script(str(VALIDATE), str(repo))
+            self.assertEqual(rejected.returncode, 1)
+            self.assertIn("must mention personally identifiable information", rejected.stdout)
+            self.assertIn("must mention payments", rejected.stdout)
+
+            self._write_dangerous_doc(repo, "- PII handling in src/pii_handler.py\n- Stripe payment webhook")
+            accepted = run_script(str(VALIDATE), str(repo))
+            self.assertEqual(accepted.returncode, 0, accepted.stdout)
+
+    def test_validate_ignores_unverified_commands_in_comments(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir) / "repo"
+            repo.mkdir()
+            run_script(str(SCAN), str(repo))
+            write_minimal_harness(
+                repo, "#!/usr/bin/env sh\nset -eu\n# pytest is a candidate; see docs/testing.md\necho detox\n"
+            )
+
+            result = run_script(str(VALIDATE), str(repo))
+
+            self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_validate_rejects_extended_unverified_commands(self) -> None:
+        for command, label in (
+            ("npx jest", "jest"),
+            ("./gradlew test", "./gradlew test"),
+            ("pnpm run test", "pnpm run test"),
+            ("bundle exec rspec", "rspec"),
+        ):
+            with self.subTest(command=command), tempfile.TemporaryDirectory() as temp_dir:
+                repo = Path(temp_dir) / "repo"
+                repo.mkdir()
+                run_script(str(SCAN), str(repo))
+                write_minimal_harness(repo, f"#!/usr/bin/env sh\nset -eu\n{command}\n")
+
+                result = run_script(str(VALIDATE), str(repo))
+
+                self.assertEqual(result.returncode, 1)
+                self.assertIn(f"unverified command: {label}", result.stdout)
+
+    def test_validate_unknown_message_points_to_explicit_labels(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir) / "repo"
+            repo.mkdir()
+            run_script(str(SCAN), str(repo))
+            write_minimal_harness(repo, "#!/usr/bin/env sh\nset -eu\n")
+            (repo / "docs/debugging.md").write_text("# Debugging\n\nUnknown logs.\n", encoding="utf-8")
+
+            result = run_script(str(VALIDATE), str(repo))
+
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("Not configured", result.stdout)
+            self.assertIn("Needs human confirmation", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

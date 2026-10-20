@@ -5,4 +5,4 @@ set -eu
 # Keep this calling only commands proven to exist and pass here.
 
 echo "Harness check: unittest"
-python3 -m unittest tests/test_harness_scripts.py
+python3 -m unittest discover tests

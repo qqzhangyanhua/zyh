@@ -6,6 +6,7 @@
 
 | 时间 | 类型 | 说明 |
 | --- | --- | --- |
+| 2026-10-20 | 修复 | 扫描抽样、候选总数、风险 token 匹配、CI 命令提取、校验规则修复（详见根 `CLAUDE.md`）；本文档入口/接口/测试章节已按包结构更新。 |
 | 2026-07-27 | 功能 | 完成 issue #7 Slice 5：新增 `scripts/harness/content_detectors.py` 内容层探测（CI 命令、Dockerfile 指令、pyproject `[tool.*]` 键名、`.env.example` key、pre-commit hook id、CODEOWNERS、SECURITY.md 摘要），所有读取共享 `ContentBudget`（`--content-budget-bytes`，默认 8 MiB）；见根 `CLAUDE.md` 变更记录详情。注：本文档自 Slice 1-4（`scripts/harness/` 包化、两阶段扫描、语言规则表、任务系统解析器）以来落后于代码现状，`入口/对外接口/数据模型` 章节仍按早期单文件版本描述，需要单独一次全量复扫更新。 |
 | 2026-06-06 14:43:29 | 修复 | `detect_package_scripts` 改用相对路径判断 SKIP_DIRS;`detect_existing_scripts` 递归检测嵌套脚本;`scan()` 新增 `truncated` 字段;校验正则放开 `/` 支持嵌套脚本引用。 |
 | 2026-06-06 13:12:21 | 增量复扫 | 复核 `scan_repo.py` 与 `validate_harness_docs.py`，行为与文档一致，无变化。 |
@@ -22,13 +23,15 @@
 
 | 文件 | 入口 | 用法 |
 | --- | --- | --- |
-| `scripts/scan_repo.py` | `main()` | `python3 scripts/scan_repo.py /path/to/repo` |
-| `scripts/validate_harness_docs.py` | `main()` | `python3 scripts/validate_harness_docs.py /path/to/repo` |
+| `scripts/scan_repo.py` | `harness.cli.scan_main()` | `python3 scripts/scan_repo.py /path/to/repo` |
+| `scripts/validate_harness_docs.py` | `harness.cli.validate_main()` | `python3 scripts/validate_harness_docs.py /path/to/repo` |
+
+包内模块：`walker`（git/os 遍历、比例配额与等距抽样）、`detectors`（路径级探测）、`task_parsers`（任务系统）、`content_detectors`（受预算限制的内容层）、`sampling`、`schema`、`rules`、`validator`、`scanner`（编排）。
 
 `scan_repo.py` 支持：
 
 ```sh
-python3 scripts/scan_repo.py --deep --limit 20000 /path/to/repo
+python3 scripts/scan_repo.py --deep /path/to/repo
 ```
 
 ## 对外接口
@@ -37,9 +40,9 @@ python3 scripts/scan_repo.py --deep --limit 20000 /path/to/repo
 
 ### `scan_repo.py`
 
-- 输入：目标仓库路径、可选 `--deep`、`--limit`、`--output`。
+- 输入：目标仓库路径、可选 `--deep`、`--limit`（默认 50000）、`--output`、`--full`、`--force`、`--content-budget-bytes`。
 - 输出：默认写入目标仓库 `.agent/repo-facts.json`，并打印输出路径。
-- 事实字段包括：顶层结构、manifest、配置、文档、脚本(含嵌套)、CI、测试文件、生成文件候选、风险候选、重要流程候选、缺失能力、`truncated` 截断标记。
+- 事实字段（schema v2）见 `references/repo-facts.md`。
 
 ### `validate_harness_docs.py`
 
@@ -65,7 +68,7 @@ python3 scripts/scan_repo.py --deep --limit 20000 /path/to/repo
 
 ## 测试与质量
 
-覆盖文件：`tests/test_harness_scripts.py`。
+覆盖文件：`tests/test_*.py`，运行 `python3 -m unittest discover tests`。
 
 重点测试行为：
 
@@ -93,6 +96,7 @@ python3 scripts/scan_repo.py --deep --limit 20000 /path/to/repo
 
 - `scripts/scan_repo.py`
 - `scripts/validate_harness_docs.py`
-- `tests/test_harness_scripts.py`
+- `tests/`
 - `references/templates.md`
+- `references/repo-facts.md`
 - `SKILL.md`

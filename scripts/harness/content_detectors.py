@@ -16,6 +16,9 @@ from typing import Any
 from .walker import rel
 
 _RUN_RE = re.compile(r"^(\s*)(?:-\s*)?run:\s*(.*)$")
+_SCRIPT_KEY_RE = re.compile(r"^(\s*)(?:-\s*)?(script|before_script|after_script):\s*(.*)$")
+_COMMAND_KEY_RE = re.compile(r"^(\s*)command:\s*(.*)$")
+_LIST_ITEM_RE = re.compile(r"^(\s*)-\s+(.*)$")
 _BLOCK_SCALARS = {"|", "|-", "|+", ">", ">-", ">+"}
 _DOCKERFILE_DIRECTIVE_RE = re.compile(r"^\s*(RUN|CMD|ENTRYPOINT|WORKDIR|USER|EXPOSE)\s+(.+)$")
 _ENV_KEY_RE = re.compile(r"^([A-Z_][A-Z0-9_]*)=")
@@ -71,6 +74,64 @@ def _strip_quotes(value: str) -> str:
     return value
 
 
+def _indent(line: str) -> int:
+    return len(line) - len(line.lstrip())
+
+
+def _first_block_line(lines: list[str], start: int) -> int | None:
+    j = start
+    while j < len(lines) and not lines[j].strip():
+        j += 1
+    return j if j < len(lines) else None
+
+
+def _command_from_value(lines: list[str], index: int, value: str) -> tuple[int, str, bool] | None:
+    """Resolve a YAML scalar value to (0-based line, command, multiline); block scalars yield their first line."""
+    value = value.strip()
+    if value in _BLOCK_SCALARS:
+        j = _first_block_line(lines, index + 1)
+        return (j, lines[j].strip(), True) if j is not None else None
+    if not value or value.startswith(("[", "{")):
+        return None
+    return index, _strip_quotes(value), False
+
+
+def _circleci_run_command(lines: list[str], index: int) -> tuple[int, str, bool] | None:
+    # CircleCI map form: `- run:` followed by nested `command:`.
+    run_indent = _indent(lines[index])
+    for j in range(index + 1, len(lines)):
+        line = lines[j]
+        if not line.strip():
+            continue
+        if _indent(line) <= run_indent:
+            return None
+        m = _COMMAND_KEY_RE.match(line)
+        if m:
+            return _command_from_value(lines, j, m.group(2))
+    return None
+
+
+def _script_list_commands(lines: list[str], index: int) -> list[tuple[int, str, bool]]:
+    # GitLab/Bitbucket/Travis `script:` sequences; items may sit at the key's own indent.
+    key_indent = _indent(lines[index])
+    found: list[tuple[int, str, bool]] = []
+    for j in range(index + 1, len(lines)):
+        line = lines[j]
+        if not line.strip():
+            continue
+        indent = _indent(line)
+        item = _LIST_ITEM_RE.match(line)
+        if item and indent >= key_indent:
+            if _RUN_RE.match(line):
+                continue
+            resolved = _command_from_value(lines, j, item.group(2))
+            if resolved is not None:
+                found.append(resolved)
+        elif indent <= key_indent:
+            break
+    return found
+
+
 def extract_ci_commands(
     ci_files: list[str], root: Path, budget: ContentBudget, content_read_truncated: list[dict[str, str]]
 ) -> list[dict[str, Any]]:
@@ -81,35 +142,34 @@ def extract_ci_commands(
             continue
         lines = text.splitlines()
         workflow = Path(rel_path).stem
+        # In GitHub Actions `script:` is an actions/github-script JS body, not a shell command.
+        parse_script_keys = not rel_path.startswith(".github/")
         for i, line in enumerate(lines):
-            m = _RUN_RE.match(line)
-            if not m:
-                continue
-            value = m.group(2).strip()
-            if value in _BLOCK_SCALARS:
-                j = i + 1
-                while j < len(lines) and not lines[j].strip():
-                    j += 1
-                if j < len(lines):
-                    commands.append(
-                        {
-                            "file": rel_path,
-                            "line": j + 1,
-                            "command": lines[j].strip(),
-                            "workflow": workflow,
-                            "source": "ci_workflow",
-                            "multiline": True,
-                        }
-                    )
-            elif value:
+            resolved: list[tuple[int, str, bool]] = []
+            run_m = _RUN_RE.match(line)
+            script_m = _SCRIPT_KEY_RE.match(line) if parse_script_keys else None
+            if run_m:
+                value = run_m.group(2).strip()
+                single = _circleci_run_command(lines, i) if not value else _command_from_value(lines, i, value)
+                if single is not None:
+                    resolved.append(single)
+            elif script_m:
+                value = script_m.group(3).strip()
+                if value:
+                    single = _command_from_value(lines, i, value)
+                    if single is not None:
+                        resolved.append(single)
+                else:
+                    resolved.extend(_script_list_commands(lines, i))
+            for line_index, command, multiline in resolved:
                 commands.append(
                     {
                         "file": rel_path,
-                        "line": i + 1,
-                        "command": value,
+                        "line": line_index + 1,
+                        "command": command,
                         "workflow": workflow,
                         "source": "ci_workflow",
-                        "multiline": False,
+                        "multiline": multiline,
                     }
                 )
     return commands[:_CI_COMMAND_LIMIT]

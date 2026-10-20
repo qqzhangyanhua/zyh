@@ -46,7 +46,7 @@ from .task_parsers import (
     extract_taskfile_tasks,
     extract_workspace_packages,
 )
-from .walker import count_files, top_level, walk_repo
+from .walker import ROOT_BUCKET, count_files, proportional_quota, top_level, walk_repo
 
 _FULL_THRESHOLD = 50_000
 _MAX_THRESHOLD = 500_000
@@ -102,24 +102,20 @@ def scan(
     if total > _max_threshold and not force:
         raise FileLimitError(total, _max_threshold)
 
-    if total > _full_threshold and not force:
-        walk_limit = _full_threshold
-        quota: dict[str, int] | None = {
-            top: max(1, round(n / total * _full_threshold)) for top, n in by_top.items()
-        }
-        truncation_strategy: dict[str, Any] = {
+    walk_limit = min(limit, _full_threshold)
+    quota: dict[str, int] | None = None
+    truncation_strategy: dict[str, Any] = {}
+    suggested_shards: list[str] = []
+    if total > walk_limit:
+        quota = proportional_quota(by_top, walk_limit)
+        truncation_strategy = {
             "mode": "proportional",
             "total_files": total,
-            "sample_limit": _full_threshold,
+            "sample_limit": walk_limit,
         }
-        suggested_shards = sorted(by_top)
-    else:
-        walk_limit = limit
-        quota = None
-        truncation_strategy = {}
-        suggested_shards: list[str] = []
+        suggested_shards = sorted(top for top in by_top if top != ROOT_BUCKET)
 
-    walk_result = walk_repo(root, walk_limit, quota)
+    walk_result = walk_repo(root, walk_limit, quota, by_top)
     files = walk_result.files
 
     parse_errors: list[dict[str, str]] = []
@@ -134,7 +130,7 @@ def scan(
     package_commands = detect_script_commands(root)
 
     makefile_info = extract_makefile_info(root, parse_errors)
-    makefile_targets_raw = makefile_info["targets"]
+    makefile_targets_raw = makefile_info["all_targets"]
     cargo_info = extract_cargo_info(root, parse_errors)
 
     content_read_truncated: list[dict[str, str]] = []
@@ -153,7 +149,9 @@ def scan(
     risks, risks_total, risks_trunc = sample_with_buckets(risks_raw, _SAMPLE_CAP, _top_dir_dict)
     flows, flows_total, flows_trunc = sample_with_buckets(flows_raw, _SAMPLE_CAP, _top_dir_dict)
     ci_configs, ci_total, ci_trunc = sample_with_buckets(ci_configs_raw, _SAMPLE_CAP, _top_dir)
-    makefile_targets, mk_total, mk_trunc = sample_with_buckets(makefile_targets_raw, _SAMPLE_CAP, lambda x: x)
+    makefile_targets = makefile_info["targets"]
+    mk_total = makefile_info["targets_total"]
+    mk_trunc = makefile_info["targets_truncated"]
 
     facts: dict[str, Any] = {
         **v2_placeholders(),
@@ -215,7 +213,7 @@ def scan(
         "missing_capabilities": detect_missing_capabilities(root, package_commands, test_files),
         "scanned_file_count": len(files),
         "scan_limit": limit,
-        "truncated": len(files) >= walk_limit,
+        "truncated": len(files) < total - len(walk_result.submodules),
         "doc_hints_total": 0,
         "doc_hints_truncated": False,
         "notes": [

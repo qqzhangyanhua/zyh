@@ -6,6 +6,7 @@
 
 | 时间 | 类型 | 说明 |
 | --- | --- | --- |
+| 2026-10-20 | 修复 | 新增 `test_scan_accuracy.py`（抽样覆盖、候选总数、风险 token、CI 命令）与校验器新用例；测试入口改为 `discover`。 |
 | 2026-06-06 13:12:21 | 增量复扫 | 复核 `test_harness_scripts.py`，测试集与文档一致，无变化。 |
 | 2026-06-05 20:33:44 | 初始化 | 生成 tests 模块 Claude 工作文档。 |
 
@@ -18,8 +19,10 @@
 测试入口：
 
 ```sh
-python3 -m unittest tests/test_harness_scripts.py
+python3 -m unittest discover tests
 ```
+
+共享夹具在 `tests/helpers.py`；按主题拆分为 `test_harness_scripts.py`、`test_harness_validate.py`、`test_git_traversal.py`、`test_scanner_slices.py`、`test_scan_accuracy.py`、`test_language_rules.py`、`test_task_parsers.py`、`test_content_detectors.py`、`test_sampling.py`。
 
 ## 对外接口
 
@@ -61,6 +64,6 @@ python3 -m unittest tests/test_harness_scripts.py
 
 ## 相关文件清单
 
-- `tests/test_harness_scripts.py`
+- `tests/helpers.py`
 - `scripts/scan_repo.py`
 - `scripts/validate_harness_docs.py`

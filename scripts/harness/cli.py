@@ -22,11 +22,18 @@ from .validator import (
 def scan_main() -> int:
     parser = argparse.ArgumentParser(description="Scan a repository and write conservative facts for agent harness docs.")
     parser.add_argument("repo", nargs="?", default=".", help="Repository root to scan")
-    parser.add_argument("--limit", type=int, default=5000, help="Maximum files to scan")
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=50_000,
+        help="Maximum files to scan (capped at 50000); larger repos are sampled proportionally per top-level directory",
+    )
     parser.add_argument("--deep", action="store_true", help="Collect extra docs, config, flow, and missing-capability facts")
     parser.add_argument("--output", help="Output JSON path; defaults to <repo>/.agent/repo-facts.json")
     parser.add_argument("--full", action="store_true", help="Also write repo-facts.full.json with unrestricted candidate lists")
-    parser.add_argument("--force", action="store_true", help="Scan repositories exceeding the 500k-file limit")
+    parser.add_argument(
+        "--force", action="store_true", help="Sample repositories exceeding the 500k-file limit instead of refusing"
+    )
     parser.add_argument(
         "--content-budget-bytes",
         type=int,

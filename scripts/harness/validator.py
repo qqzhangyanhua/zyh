@@ -10,7 +10,7 @@ from pathlib import Path
 from .rules import (
     REQUIRED_AGENTS_REFERENCES,
     REQUIRED_FILES,
-    RISK_TERMS,
+    RISK_MENTION_RULES,
     RUNTIME_GUESS_PATTERNS,
     UNVERIFIED_COMMANDS,
 )
@@ -71,15 +71,15 @@ def validate_dangerous_areas(root: Path, facts: dict, errors: list[str]) -> None
     if not path.exists():
         return
     text = read(path).lower()
-    # Only require terms that actually appear as risk candidates in this repo.
+    # Only require labels whose risk reasons were actually detected in this repo.
     risk_reasons = " ".join(
         item.get("reason", "") for item in facts.get("risk_candidates", [])
     ).lower()
-    for term in RISK_TERMS:
-        if term not in risk_reasons:
+    for label, reason_markers, doc_words in RISK_MENTION_RULES:
+        if not any(marker in risk_reasons for marker in reason_markers):
             continue
-        if term not in text:
-            fail(errors, f"docs/dangerous-areas.md must mention {term} (detected in repo)")
+        if not any(re.search(rf"\b{re.escape(word)}", text) for word in doc_words):
+            fail(errors, f"docs/dangerous-areas.md must mention {label} (detected in repo)")
 
 
 def validate_check_script(root: Path, facts: dict, errors: list[str]) -> None:
@@ -95,10 +95,11 @@ def validate_check_script(root: Path, facts: dict, errors: list[str]) -> None:
         if pattern in text:
             fail(errors, f"scripts/check.sh uses runtime command guessing: {pattern}")
     existing_scripts = set(facts.get("existing_scripts", []))
+    code = "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("#"))
     for command in UNVERIFIED_COMMANDS:
-        if command not in text:
-            continue
-        fail(errors, f"scripts/check.sh includes unverified command: {command}")
+        # Whole-word match so "detox" or "scripts/pytest.sh" are not mistaken for tox/pytest.
+        if re.search(rf"(?<![\w./-]){re.escape(command)}(?![\w-])", code):
+            fail(errors, f"scripts/check.sh includes unverified command: {command}")
     # Match ./scripts/X, scripts/X, ./bin/X, bin/X, and nested paths like
     # scripts/ci/foo.sh — but not inside shebang paths like /usr/bin/env
     for script in re.findall(r"(?<![/\w])\.?/?(?:scripts|bin|tools|hack|ci)/[A-Za-z0-9_./-]+", text):
@@ -121,4 +122,4 @@ def validate_todos(root: Path, errors: list[str]) -> None:
             continue
         text = read(path)
         if "Unknown" in text:
-            fail(errors, f"{path.relative_to(root)} uses 'Unknown'; use explicit TODO markers instead")
+            fail(errors, f"{path.relative_to(root)} uses 'Unknown'; write 'Not configured' or 'Needs human confirmation' instead")

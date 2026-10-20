@@ -1,6 +1,6 @@
 # Harness Templates
 
-Use these templates when creating a harness. Replace placeholders from `.agent/repo-facts.json`. If the fact is absent after deep scanning, write `Not configured` or `Needs human confirmation` instead of noisy TODOs.
+Use these templates when creating a harness. Replace placeholders from `.agent/repo-facts.json` (field guide: `references/repo-facts.md`). If the fact is absent after deep scanning, write `Not configured` or `Needs human confirmation` instead of noisy TODOs. If `truncated` is true, note that lists come from a sample.
 
 ## AGENTS.md
 
@@ -54,6 +54,7 @@ List flows from `important_flow_candidates`, README/architecture docs, and modul
 List confirmed build outputs and generated candidates. Use `Needs human confirmation` for ambiguous code-generation templates or script output artifacts.
 
 ## Ownership / Risk
+- Owners: list `codeowners` entries. If none, write `Needs human confirmation`.
 - High risk: auth, permissions, billing, migrations, infra, secrets, public APIs, generated clients
 - Medium risk: shared libraries, background jobs, API handlers
 - Low risk: docs, isolated tests, UI copy
@@ -68,7 +69,7 @@ List confirmed build outputs and generated candidates. Use `Needs human confirma
 List only commands found in repo scripts or successfully run.
 
 ## Candidate Commands
-List commands detected but not verified. If none, write `None detected`.
+List commands detected but not verified, with their source: `package_commands`, `makefile_targets`, `justfile_recipes`, `taskfile_tasks`, `python_scripts`, `ci_commands` (file and line). If none, write `None detected`.
 
 ## Test Locations
 List detected test directories and patterns. If none, write `Not configured: no dedicated test files detected`.
@@ -90,7 +91,7 @@ Do not claim checks passed unless they were run in this workspace.
 # Dangerous Areas
 
 ## High-Risk Areas
-List detected auth, permission, billing, payments, migration, deployment, infra, secret, generated, and public API paths.
+List every reason in `risk_candidates` with its paths (auth, permissions, billing, payments, migrations, deployment, infra, Kubernetes/Helm, IAM/RBAC, PII, secrets, generated files, public API), plus `generated_candidates`. List `env_keys` by name only and point to `security_md` when present.
 
 ## Rules
 - Do not edit generated files directly.
@@ -112,7 +113,7 @@ List checks that would reduce review risk. Use `Recommended:` prefix, not TODO, 
 - Check logs and dev commands documented in this file.
 
 ## Local Logs
-Document log locations from repo facts. If this is frontend-only or no logs exist, write `Not configured`.
+Document log locations from repo facts (`docker_services`, `dockerfile_directives`, docs). If this is frontend-only or no logs exist, write `Not configured`.
 
 ## Common Failures
 Document only known failures from repo docs, commands, hooks, or reproduced errors.
