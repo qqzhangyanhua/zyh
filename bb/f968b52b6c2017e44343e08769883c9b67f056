@@ -1,0 +1,69 @@
+references/CLAUDE.md
+  s_15f795433a0a1e::t_ec289576dae01c 49
+scripts/CLAUDE.md
+  s_15f795433a0a1e::t_4c5dafe3c4761c 9,26-29,34,43,45,71,99,101
+scripts/harness/content_detectors.py
+  s_c92134f149f9b8::t_7b211ef1c66768 19-21,77-134,145-146,148-164,168-169,172
+tests/CLAUDE.md
+  s_15f795433a0a1e::t_8e5ce087f4aea9 9,22,25-26,67
+.github/workflows/ci.yml
+  s_15f795433a0a1e::t_a50c10da6bd840 12
+AGENTS.md
+  s_15f795433a0a1e::t_6202491af69361 11,13,20,22,35
+CLAUDE.md
+  s_15f795433a0a1e::t_322f6f9883cb0b 7,37,59-60,70,72,81,112
+README.md
+  s_15f795433a0a1e::t_ade6c1342d27fe 33,35-36,52,55-56,80,83
+SKILL.md
+  s_15f795433a0a1e::t_5068ebfdeee374 27-29,39,52-53,81
+docs/agents/domain.md
+  s_15f795433a0a1e::t_182b79b6f3e623 4-5
+references/repo-facts.md
+  s_15f795433a0a1e::t_50ac9f7c6b646d 1-40
+references/templates.md
+  s_15f795433a0a1e::t_d003bcf4eefb4d 3,57,72,94,116
+scripts/check.sh
+  s_15f795433a0a1e::t_69a73443a6f019 8
+scripts/harness/cli.py
+  s_15f795433a0a1e::t_b31bc3b9ae6c62 25-30,34-36
+scripts/harness/detectors.py
+  s_15f795433a0a1e::t_207a6797aec4be 21,26-33,62,71-84,91-92,94-99,109,123,125-134,164,175-184,195,209
+scripts/harness/rules.py
+  s_15f795433a0a1e::t_a2f8e8763920c6 152-155,158-161,163-164,170,172,186-187,290-310,315,317,319,321-322,324-325,330-336
+scripts/harness/scanner.py
+  s_15f795433a0a1e::t_a83ef392dc74f4 49,105-111,114,116-118,133,152-154,216
+scripts/harness/task_parsers.py
+  s_15f795433a0a1e::t_f188eceb363f39 28,90-91
+scripts/harness/validator.py
+  s_15f795433a0a1e::t_3c0412553d7ba9 13,74,78-79,81-82,98,100-102,125
+scripts/harness/walker.py
+  s_15f795433a0a1e::t_7844999b7576af 13-15,29-33,37-40,46-103,107,111,118,127-128,131-137,139,142-143,145-147,153,156-163,166-169,177,181-182,194,196-198,200-203,212-213,238-247
+tests/test_harness_validate.py
+  s_15f795433a0a1e::t_6983950f2811aa 233-332
+tests/test_scan_accuracy.py
+  s_15f795433a0a1e::t_df12d6fef9be69 1-248
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "development:1.6.23",
+  "base_commit_sha": "bbf968b52b6c2017e44343e08769883c9b67f056",
+  "prompts": {},
+  "sessions": {
+    "s_15f795433a0a1e": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "a3efe510-a155-4941-8053-85dbe8cf49f3",
+        "model": "claude-fable-5.1"
+      },
+      "human_author": "张艳华 <939593210@qq.com>"
+    },
+    "s_c92134f149f9b8": {
+      "agent_id": {
+        "tool": "grok",
+        "id": "01a15850-fa29-7c10-a536-89c6715832ff",
+        "model": "grok-4.7-build-fast"
+      },
+      "human_author": "张艳华 <939593210@qq.com>"
+    }
+  }
+}
