@@ -6,6 +6,7 @@
 
 | 时间 | 类型 | 说明 |
 | --- | --- | --- |
+| 2026-07-27 | 功能 | 完成 issue #7 Slice 5：新增 `scripts/harness/content_detectors.py` 内容层探测（CI 命令、Dockerfile 指令、pyproject `[tool.*]` 键名、`.env.example` key、pre-commit hook id、CODEOWNERS、SECURITY.md 摘要），所有读取共享 `ContentBudget`（`--content-budget-bytes`，默认 8 MiB）；见根 `CLAUDE.md` 变更记录详情。注：本文档自 Slice 1-4（`scripts/harness/` 包化、两阶段扫描、语言规则表、任务系统解析器）以来落后于代码现状，`入口/对外接口/数据模型` 章节仍按早期单文件版本描述，需要单独一次全量复扫更新。 |
 | 2026-06-06 14:43:29 | 修复 | `detect_package_scripts` 改用相对路径判断 SKIP_DIRS;`detect_existing_scripts` 递归检测嵌套脚本;`scan()` 新增 `truncated` 字段;校验正则放开 `/` 支持嵌套脚本引用。 |
 | 2026-06-06 13:12:21 | 增量复扫 | 复核 `scan_repo.py` 与 `validate_harness_docs.py`，行为与文档一致，无变化。 |
 | 2026-06-05 20:33:44 | 初始化 | 生成 scripts 模块 Claude 工作文档。 |

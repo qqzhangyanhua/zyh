@@ -27,6 +27,12 @@ def scan_main() -> int:
     parser.add_argument("--output", help="Output JSON path; defaults to <repo>/.agent/repo-facts.json")
     parser.add_argument("--full", action="store_true", help="Also write repo-facts.full.json with unrestricted candidate lists")
     parser.add_argument("--force", action="store_true", help="Scan repositories exceeding the 500k-file limit")
+    parser.add_argument(
+        "--content-budget-bytes",
+        type=int,
+        default=8 * 1024 * 1024,
+        help="Shared byte budget for content-layer reads (CI/Dockerfile/pyproject tools/env/precommit/CODEOWNERS/SECURITY.md); default 8 MiB",
+    )
     args = parser.parse_args()
 
     root = Path(args.repo)
@@ -37,7 +43,14 @@ def scan_main() -> int:
     full_output = output.parent / "repo-facts.full.json" if args.full else None
 
     try:
-        facts = scan(root, args.limit, args.deep, full_output=full_output, force=args.force)
+        facts = scan(
+            root,
+            args.limit,
+            args.deep,
+            full_output=full_output,
+            force=args.force,
+            content_budget_bytes=args.content_budget_bytes,
+        )
     except FileLimitError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1

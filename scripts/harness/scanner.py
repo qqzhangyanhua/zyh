@@ -7,6 +7,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .content_detectors import (
+    ContentBudget,
+    extract_ci_commands,
+    extract_codeowners,
+    extract_dockerfile_directives,
+    extract_env_keys,
+    extract_precommit_hooks_detail,
+    extract_security_md,
+    extract_tool_configs,
+)
 from .detectors import (
     detect_ci_configs,
     detect_configs,
@@ -41,6 +51,7 @@ from .walker import count_files, top_level, walk_repo
 _FULL_THRESHOLD = 50_000
 _MAX_THRESHOLD = 500_000
 _SAMPLE_CAP = 500
+_DEFAULT_CONTENT_BUDGET_BYTES = 8 * 1024 * 1024
 
 
 class FileLimitError(Exception):
@@ -54,6 +65,20 @@ def _top_dir(path: str) -> str:
     return path.split("/", 1)[0]
 
 
+def _dedupe_parse_errors(errors: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Independent detectors may re-parse the same manifest and both report a failure;
+    collapse to one entry per (file, kind) so facts don't double-count a single root cause."""
+    seen: set[tuple[str, str]] = set()
+    deduped: list[dict[str, str]] = []
+    for error in errors:
+        key = (error.get("file", ""), error.get("kind", ""))
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(error)
+    return deduped
+
+
 def _top_dir_dict(item: dict) -> str:
     return _top_dir(item.get("path", ""))
 
@@ -64,6 +89,7 @@ def scan(
     deep: bool,
     full_output: Path | None = None,
     force: bool = False,
+    content_budget_bytes: int = _DEFAULT_CONTENT_BUDGET_BYTES,
     _full_threshold: int = _FULL_THRESHOLD,
     _max_threshold: int = _MAX_THRESHOLD,
 ) -> dict[str, Any]:
@@ -111,6 +137,16 @@ def scan(
     makefile_targets_raw = makefile_info["targets"]
     cargo_info = extract_cargo_info(root, parse_errors)
 
+    content_read_truncated: list[dict[str, str]] = []
+    content_budget = ContentBudget(content_budget_bytes)
+    ci_commands = extract_ci_commands(ci_configs_raw, root, content_budget, content_read_truncated)
+    dockerfile_directives = extract_dockerfile_directives(files, root, content_budget, content_read_truncated)
+    tool_configs = extract_tool_configs(root, content_budget, content_read_truncated, parse_errors)
+    env_keys = extract_env_keys(files, root, content_budget, content_read_truncated, parse_errors)
+    precommit_hooks_detail = extract_precommit_hooks_detail(root, content_budget, content_read_truncated)
+    codeowners = extract_codeowners(root, content_budget, content_read_truncated)
+    security_md = extract_security_md(root, content_budget, content_read_truncated)
+
     test_files, tf_total, tf_trunc = sample_with_buckets(test_files_raw, _SAMPLE_CAP, _top_dir)
     docs, docs_total, docs_trunc = sample_with_buckets(docs_raw, _SAMPLE_CAP, _top_dir)
     generated, gen_total, gen_trunc = sample_with_buckets(generated_raw, _SAMPLE_CAP, _top_dir)
@@ -155,6 +191,15 @@ def scan(
         "justfile_recipes": extract_justfile_recipes(root, parse_errors),
         "taskfile_tasks": extract_taskfile_tasks(root, parse_errors),
         "docker_services": extract_docker_services(root, parse_errors),
+        "ci_commands": ci_commands,
+        "dockerfile_directives": dockerfile_directives,
+        "tool_configs": tool_configs,
+        "env_keys": env_keys,
+        "precommit_hooks_detail": precommit_hooks_detail,
+        "codeowners": codeowners,
+        "security_md": security_md,
+        "content_read_truncated": content_read_truncated,
+        "content_budget_bytes": content_budget_bytes,
         "test_files": test_files,
         "test_files_total": tf_total,
         "test_files_truncated": tf_trunc,
@@ -181,6 +226,7 @@ def scan(
     }
     facts["ignored_top_dirs"] = walk_result.ignored_top_dirs
     facts["submodules"] = walk_result.submodules
+    facts["parse_errors"] = _dedupe_parse_errors(facts["parse_errors"])
 
     if deep:
         doc_hints_raw: list[Any] = extract_doc_hints(root, docs_raw)

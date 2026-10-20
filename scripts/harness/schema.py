@@ -48,4 +48,6 @@ def v2_placeholders() -> dict[str, Any]:
         "workspace_packages": [],
         "parse_errors": [],
         "content_read_truncated": [],
+        "security_md": None,
+        "content_budget_bytes": 0,
     }
