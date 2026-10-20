@@ -1,0 +1,26 @@
+CLAUDE.md
+  h_4132837b09b7e7 7
+scripts/CLAUDE.md
+  h_4132837b09b7e7 9
+scripts/harness/cli.py
+  h_4132837b09b7e7 30-35,46-53
+scripts/harness/content_detectors.py
+  h_4132837b09b7e7 1-265
+scripts/harness/scanner.py
+  h_4132837b09b7e7 10-19,54,68-81,92,140-149,194-202,229
+scripts/harness/schema.py
+  h_4132837b09b7e7 51-52
+tests/test_content_detectors.py
+  h_4132837b09b7e7 1-390
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "development:1.6.23",
+  "base_commit_sha": "faf3c91dd01414bb3b8aed38c8b3699b3a084ccd",
+  "prompts": {},
+  "humans": {
+    "h_4132837b09b7e7": {
+      "author": "张艳华 <939593210@qq.com>"
+    }
+  }
+}
